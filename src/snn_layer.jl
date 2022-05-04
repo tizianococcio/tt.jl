@@ -1,0 +1,74 @@
+@with_kw mutable struct SNNLayer
+    weights::Matrix{Float64}
+    popmembers::Matrix{Int64}
+    spikes_dt#::SpikeTimit.FiringTimes,
+    transcriptions_dt::SpikeTimit.Transcriptions
+    net::LKD.NetParams
+    store::LKD.StoreParams
+    weights_params::LKD.WeightParams
+    projections::LKD.ProjectionParams
+    stdp::Union{tt.TripletSTDP, tt.VoltageSTDP}
+end
+
+function SNNLayer(in::tt.InputLayer)
+    SNNLayer(
+        in.weights,
+        in.popmembers,
+        in.spikes_dt,
+        in.transcriptions_dt,
+        in.net,
+        in.store,
+        in.weights_params,
+        in.projections,
+        in.stdp
+    )
+end
+
+@with_kw struct SNNOut
+    weights::Matrix{Float64}
+    firing_times::Vector{Vector{Float64}}
+    firing_rates::Matrix{Float32}
+    trackers::Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}}
+    phone_states::Vector{Any}
+    word_states::Vector{Any}
+end
+
+function _run(snn::SNNLayer)
+    W, T, R, trackers = tt.sim(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
+        snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp);
+    ws = LKD.read_network_states(joinpath(snn.store.folder,"word_states"));
+    ps = LKD.read_network_states(joinpath(snn.store.folder,"phone_states"));
+    return SNNOut(W, T, R, trackers, ps, ws)
+end
+
+"""
+runs the simulation and stores the network states. Overwrite previous data.
+"""
+function train(snn::SNNLayer)
+    LKD.makefolder(snn.store.folder);
+    LKD.cleanfolder(snn.store.folder);
+    return _run(snn)
+end
+
+
+"""
+runs the simulation on a previously trained network. Data for this network must exist on disk.
+"""
+function test(snn::SNNLayer)
+    snn.net.learning = false
+    return _run(snn)
+end
+
+function load(in::tt.InputLayer)
+    W = LKD.read_network_weights(in.store.folder)
+    T = LKD.read_network_spikes(in.store.folder)
+    R = LKD.read_network_rates(in.store.folder)
+    SS_words = LKD.read_network_states(joinpath(in.store.folder,"word_states"))
+    SS_phones = LKD.read_network_states(joinpath(in.store.folder,"phone_states"))
+    voltage_tracker = LKD.read_neuron_membrane(in.store.folder)
+    adaptation_current_tracker = LKD.read_neuron_membrane(in.store.folder; type="w_adapt")
+    adaptive_threshold_tracker = LKD.read_neuron_membrane(in.store.folder; type="adaptive_threshold")
+    trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker
+    in.weights = W[end][2]
+    return (input_layer=SNNLayer(in), states=(weights=W, firing_times=T, firing_rates=R, phone_states=SS_phones, word_states=SS_words, trackers=trackers))
+end
