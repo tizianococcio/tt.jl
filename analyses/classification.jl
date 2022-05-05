@@ -11,13 +11,43 @@ conf = YAML.load_file(joinpath(@__DIR__, "../conf/paths.yml"))
 path_dataset = conf["dataset_path"]
 path_storage = conf["training_storage_path"]
 
+# Prepare params
+swords = ["the", "a", "water", "greasy"]
+swords_new_stimuli = ["does", "may", "color", "easy"]
+params_training = []
+params_test = []
+for i in 1:length(swords)
+    params = tt.LKD.InputParams(
+        dialects=[1], 
+        samples=10, 
+        gender=['m'], 
+        words=swords[i:i], 
+        repetitions=3, 
+        shift_input=2, 
+        encoding="bae"
+    )
+    push!(params_training, params)
+
+    params = tt.LKD.InputParams(
+        dialects=[1], 
+        samples=10, 
+        gender=['m'], 
+        words=swords_new_stimuli[i:i], 
+        repetitions=3, 
+        shift_input=2, 
+        encoding="bae"
+    )
+    push!(params_test, params)
+end
+
+
 ## ----------------------------------------------- ## -----------------------------------------------
 ## Protocol 1 (a)
 weights_params = tt.LKD.WeightParams()
-swords = ["the", "a", "water", "greasy"]
-
 
 scores = []
+paths_tri = []
+paths_vol = []
 for i in 1:length(swords)
 
     params = tt.LKD.InputParams(
@@ -46,17 +76,17 @@ for i in 1:length(swords)
     classifier = tt.ClassificationLayer(snn_out);
     score, _ = tt.on_spikes(classifier, input)
     push!(scores, score)
-    
+    push!(paths_tri, input.store.folder)
 end
-# Note: execution took a very long time (35min)!
 
-scores_protocol_1 = scores
+# Note: execution took a very long time (35min)!
 folder = joinpath(conf["experiments"], "scores_protocol_1.jld2")
 jldopen(folder, "w") do file
-    file["triplet"] = scores_protocol_1
+    file["triplet/1"] = testread["triplet"]
+    file["triplet/2"] = scores
+    file["voltage/1"] = testread["voltage"]
 end
-
-# testread = load(folder)
+testread = load(folder, "triplet/1")
 
 ###########################
 # Now for VoltageSTDP (b)
@@ -90,8 +120,9 @@ for i in 1:length(swords)
     classifier = tt.ClassificationLayer(snn_out);
     score, _ = tt.on_spikes(classifier, input)
     push!(scores, score)
-    
+    push!(paths_vol, input.store.folder)
 end
+
 folder
 jldopen(folder, "a+") do file
     file["voltage"] = scores
@@ -103,21 +134,17 @@ testread = load(folder)
 # Now present the network with a novel stimulus (c)
 
 # See if I can recover the saved network so I don't have to rerun the training
-swords_new_stimuli = ["does", "may", "color", "easy"]
-params = tt.LKD.InputParams(
-    dialects=[1], 
-    samples=10, 
-    gender=['m'], 
-    words=["a"], 
-    repetitions=3, 
-    shift_input=2, 
-    encoding="bae"
-)
-input = tt.InputLayer(params, weights_params, path_dataset, path_storage, tt.TripletSTDP());
-input.store.folder
-network_data = tt.load(input);
-snn = tt.SNNLayer(network_data.input_layer);
-snn_out = tt.test(snn);
+
+# load old network
+input = tt.InputLayer(params_training[1], weights_params, path_dataset, path_storage, tt.TripletSTDP());
+new_input = tt.InputLayer(params_test[1], weights_params, path_dataset, path_storage, tt.TripletSTDP());
+old_net = tt.load(input);
+@assert old_net.snn_layer.spikes_dt != new_input.spikes_dt
+
+# inject new stimulus into old network
+tt.inject(new_input, old_net.snn_layer)
+@assert old_net.snn_layer.spikes_dt == new_input.spikes_dt
+snn_out = tt.test(old_net.snn_layer);
 
 
 # Some plotting as security checks

@@ -59,6 +59,9 @@ function test(snn::SNNLayer)
     return _run(snn)
 end
 
+"""
+loads network from disk and updates `in` with the stored weights
+"""
 function load(in::tt.InputLayer)
     W = LKD.read_network_weights(in.store.folder)
     T = LKD.read_network_spikes(in.store.folder)
@@ -70,5 +73,15 @@ function load(in::tt.InputLayer)
     adaptive_threshold_tracker = LKD.read_neuron_membrane(in.store.folder; type="adaptive_threshold")
     trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker
     in.weights = W[end][2]
-    return (input_layer=SNNLayer(in), states=(weights=W, firing_times=T, firing_rates=R, phone_states=SS_phones, word_states=SS_words, trackers=trackers))
+    return (snn_layer=SNNLayer(in), states=(weights=W, firing_times=T, firing_rates=R, phone_states=SS_phones, word_states=SS_words, trackers=trackers))
+end
+
+"""
+inject input from new input layer into a pretrained network layer
+"""
+function inject(new::tt.InputLayer, old::tt.SNNLayer)
+    old.spikes_dt = new.spikes_dt
+    old.transcriptions_dt = new.transcriptions_dt
+    new.net.simulation_time = old.net.simulation_time # copy simulation time over to be used in the classifier
+    return old
 end
