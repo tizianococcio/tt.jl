@@ -146,6 +146,10 @@ tt.inject(new_input, old_net.snn_layer)
 @assert old_net.snn_layer.spikes_dt == new_input.spikes_dt
 snn_out = tt.test(old_net.snn_layer);
 
+classifier = tt.ClassificationLayer(snn_out);
+score, _ = tt.on_spikes(classifier, new_input)
+
+
 
 # Some plotting as security checks
 scatter(SpikeTimit.get_raster_data(snn_out.firing_times), m=(1, :black, stroke(0)), leg = :none, yticks=false, xtickfontsize=5, labelfontsize=5, xlabel="Time (ms)", ylabel="Neurons", grid=false, title="triplet")
