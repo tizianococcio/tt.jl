@@ -6,6 +6,7 @@ using Parameters
 using Revise
 using SpikeTimit
 using ContentHashes
+using StatsBase
 
 
 include("parameters.jl")

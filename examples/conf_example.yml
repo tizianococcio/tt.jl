@@ -1,0 +1,4 @@
+dataset_path: '/path/to/TIMIT' # Path to SpikeTIMIT dataset
+training_storage_path: '/where/to/store/trained/networks'
+dataframes_path: '/for/preloaded/dataframes'
+experiments: '/store/experimental/results'
