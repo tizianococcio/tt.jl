@@ -44,7 +44,7 @@ end
 
 ## ----------------------------------------------- ## -----------------------------------------------
 ## Protocol 1 (a)
-folder = joinpath(conf["experiments"], "scores_protocol_1.jld2")
+folder = joinpath(conf["experiments"], "scores_protocol_1_single_run.jld2")
 
 scores = []
 paths_tri = []
@@ -64,6 +64,7 @@ for i in 1:length(swords)
     # Train (learning on)
     println(">>> Training on word $(swords[i:i])")
     input = tt.InputLayer(params, weights_params, path_dataset, path_storage, tt.TripletSTDP());
+    input.store.save_timestep = 1000
     snn = tt.SNNLayer(input);
     snn_out = tt.train(snn);
     
@@ -75,14 +76,20 @@ for i in 1:length(swords)
     # Classifier (on spikes)
     println(">>> Classifier ($(swords[i:i])")
     classifier = tt.ClassificationLayer(snn_out);
+    temp_scores = []
+    for i in 1:5
+        print("$i,")
     score, _ = tt.on_spikes(classifier, input)
-    push!(scores, score)
+        push!(temp_scores, score)
+    end
+    push!(scores, mean(temp_scores))
     push!(paths_tri, input.store.folder)
 end
 
+
 # Note: execution took a very long time (35min)!
 jldopen(folder, "w") do file
-    file["triplet/2"] = scores
+    file["triplet/1"] = scores
 end
 testread = load(folder, "triplet/1")
 
@@ -101,7 +108,6 @@ jld2 file structure
 
 ###########################
 # Now for VoltageSTDP (b)
-
 scores = []
 for i in 1:length(swords)
 
@@ -193,26 +199,24 @@ for i in 1:length(swords)
     push!(scores_voltage, score);
 
 end
-
 jldopen(folder, "a+") do file
-    file["novel/triplet"] = scores_triplet
-    #file["novel/voltage"] = scores_voltage
+    #file["novel/triplet"] = scores_triplet
+    file["novel/voltage"] = scores_voltage
 end
 
 # Plot the 4 words trained and tested on the same network both for triplet and voltage.
 # Then plot the new input (the other 4 words) tested on networks trained above, both for voltage and triplet.
 using StatsPlots
-exp_results = hcat(data["voltage/1"], data["triplet/1"])
-
 
 data = load(folder)
+exp_results = hcat(data["voltage/1"], data["triplet/1"])
 labels = repeat(["VoltageSTDP", "TripletSTDP"], inner=length(swords))
 xlabels = repeat(swords, outer=2)
 
 groupedbar(xlabels, exp_results, 
     group=labels, bar_width=0.7, lw=1, framestyle=:box, 
     xlabel="Input word", ylabel="Classification accuracy", 
-    c = :black, grid=false, legend=:bottomleft; fillstyle = [nothing :x])
+    c = :black, grid=false, legend=:outertopright; fillstyle = [nothing :x])
 a = 1
 
 

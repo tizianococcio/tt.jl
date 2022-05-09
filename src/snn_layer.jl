@@ -56,6 +56,9 @@ runs the simulation on a previously trained network. Data for this network must 
 """
 function test(snn::SNNLayer)
     snn.net.learning = false
+    snn.store.save_states=false
+    snn.store.save_network=false
+    snn.store.save_weights=false
     return _run(snn)
 end
 

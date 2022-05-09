@@ -11,6 +11,10 @@
     stdp::Union{tt.TripletSTDP, tt.VoltageSTDP}
 end
 
+function get_folder_name(params::LKD.InputParams, weights_params::LKD.WeightParams)
+    "$(string(ContentHashes.hash(params)))_$(weights_params.Ne)_$(weights_params.Ni)";
+end
+
 """
 pass an isntance of TripletSTDP to triplet_stdp to use it, otherwise default is voltage-stdp
 """
