@@ -283,7 +283,7 @@ function sim(weights::Matrix{Float64},
 				end
 				voltage_neuron_1_tracker[tt] = v[1]
 				adaptation_current_neuron_1_tracker[tt] = wadapt[1]
-				adaptive_threshold[tt] = vth0
+				adaptive_threshold[tt] = vth[1]
 				if spiked[cc] #spike occurred
 					push!(times[cc], t);	# Times at which the neurons spiked
 					v[cc] = vre;	# reset voltage of neuron to reset potential

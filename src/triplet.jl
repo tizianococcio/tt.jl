@@ -387,7 +387,7 @@ function sim(weights::Matrix{Float64},
 		rates[2,tt] = mean(trace_istdp[Ne+1:end])/2/tauy*1000
 
 		if (tt == 1 || mod(tt, save_timestep) == 0) && save_weights
-			@time LKD.save_network_weights(weights, t/1000, folder)
+			@time LKD.save_network_weights(weights, tt/1000, folder)
 		end
 
 		if save_states

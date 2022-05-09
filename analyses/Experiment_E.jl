@@ -1,8 +1,8 @@
-using FileIO
 using Plots
 using Statistics
 using YAML
 using tt
+using JLD2
 #using SpikeTimit
 
 conf = YAML.load_file(joinpath(@__DIR__, "../conf/paths.yml"))
@@ -10,7 +10,7 @@ folder = joinpath(conf["experiments"], "E_bae.jld2")
 data = load(folder);
 
 swords = ["the", "a", "water", "greasy"]
-my_xlims = [0, 3500]
+my_xlims = [100, 3500]
 inputs_cochlea = data["in_spikes"]
 sim_triplet = data["sim_triplet"]
 sim_voltage = data["sim_voltage"]
