@@ -181,7 +181,7 @@ savefig("scattertest.pdf");
 ## ----------------------------------------------- ## -----------------------------------------------
 # Plot A1: 70-neuron cochlear encoding for one sample of the word "music"
 x, y = SpikeTimit.get_raster_data(spikes[3])
-scatter(x,y, m=(3, :black, stroke(0)), leg = :none, xlabel="Time (s)", ylabel="Neurons")
+part_a = scatter(x,y, m=(3, :black, stroke(0)), leg = :none, xlabel="Time (s)", ylabel="Neurons");
 Plots.savefig("PartA.pdf")
 
 # Overlapping plots using gradients, currently not used.
@@ -211,13 +211,13 @@ for i in 2:length(spikes)
     sc = scatter!(x,y, m=(3, :black, stroke(0)), leg = :none, alpha=0.2)
     display(sc)
 end
-scatter!(xlabel="Time (s)", ylabel="Neurons")
+part_c = scatter!(xlabel="Time (s)", ylabel="Neurons");
 Plots.savefig("PartC.pdf")
 
 ## --
 ## Plot of spike encoding with bars delimiting the phones
 duration, spikes, labels = word_inputs
-sample_id = 8
+sample_id = 1
 #ids = SpikeTimit.mix_inputs(length(word_inputs.durations), params.repetitions)
 ordered_spikes, transcripts = SpikeTimit.get_ordered_spikes(word_inputs, ids=[sample_id], silence_time=params.silence_time, shift=params.shift_input)
 
@@ -237,9 +237,17 @@ for interval in transcripts.phones.intervals
     fig = display(l)
     i += 1
 end
-plot!()
+part_c1 = plot!();
+part_c2 = plot!();
 savefig("PartC2.pdf")
 
+## Put all together in a figure
+lt = @layout [a b; c d]
+plot(part_a, part_c, part_c1, part_c2, layout=lt, 
+    xlabel=["" "" "Time (s)" "Time (s)"], ylabel=["Neurons" "" "Neurons" ""], 
+    title=["A" "B" "C" "D"], titlefontsize=7, labelfontsize=6, top_margin = 0Plots.mm, left_margin = 0Plots.mm,
+    titlelocation=:left, tickfontsize=7)
+savefig("input_analysis.pdf")
 
 ## Here I tyr to make a plot that represents the phones overlapping with the audio signal
 # But there is a problem with the fact that the audio signal contains way more samples than the spikes
