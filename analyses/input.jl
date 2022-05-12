@@ -4,8 +4,6 @@ using SpikeTimit
 using LKD
 using tt
 using Statistics
-using FileIO
-
 
 # "export LD_LIBRARY_PATH=/Users/tiziano/.julia/conda/3/lib""
 conf = YAML.load_file(joinpath(@__DIR__, "../conf/paths.yml"))

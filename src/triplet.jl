@@ -200,6 +200,10 @@ function sim(weights::Matrix{Float64},
 	o1 = zeros(Ne)	
 	o2 = zeros(Ne)
 
+	# detectors trackers
+	o = 0.0*Vector{Float64}(undef,Nsteps)
+	r = 0.0*Vector{Float64}(undef,Nsteps)
+
 	#begin main simulation loop
 	iterations = ProgressBar(1:Nsteps)
 	@fastmath @inbounds for tt = iterations
@@ -301,6 +305,8 @@ function sim(weights::Matrix{Float64},
 				voltage_tracker[tt] = v[1]
 				adaptation_current_tracker[tt] = wadapt[1]
 				adaptive_threshold_tracker[tt] = vth[1]
+				o[tt] = o1[1]
+				r[tt] = r1[1]
 
 				if spiked[cc] #spike occurred
 					push!(times[cc], t);	# Times at which the neurons spiked
@@ -441,5 +447,5 @@ function sim(weights::Matrix{Float64},
 		println("Done saving parameters")
 	end
 
-	return weights, times, rates, (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker)
+	return weights, times, rates, (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, r, o)
 end
