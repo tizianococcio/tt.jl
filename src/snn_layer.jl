@@ -24,11 +24,13 @@ function SNNLayer(in::tt.InputLayer)
     )
 end
 
+trackers_triplet = Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}} # (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, r, o)
+trackers_voltage = Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}}
 @with_kw struct SNNOut
     weights::Matrix{Float64}
     firing_times::Vector{Vector{Float64}}
     firing_rates::Matrix{Float32}
-    trackers::Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}} # (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, r, o)
+    trackers:: Union{trackers_voltage, trackers_triplet} 
     phone_states::Vector{Any}
     word_states::Vector{Any}
 end
