@@ -9,12 +9,35 @@ function load_conf()
     return YAML.load_file(joinpath(@__DIR__, "../conf/paths.yml"))
 end
 
-function load_dataset(path, params::LKD.InputParams)
-    train_path = joinpath(path, "train");
-    train = SpikeTimit.create_dataset(;dir= train_path)
+function get_timit_train_dataframe(path::String)
+    _get_timit_dataframe(path)
+end
+function get_timit_test_dataframe(path::String)
+    _get_timit_dataframe(path, which="test")
+end
 
+function _get_timit_dataframe(path::String; which="train")
+    cache_path = joinpath(path, "cache");
+    cached_df = joinpath(cache_path, "$which.jld2");
+    input_df = DataFrame();
+    if !isdir(cache_path)
+        mkpath(cache_path);
+    end
+    if !isfile(cached_df)
+        jldopen(cached_df, "w") do file
+            input_df = SpikeTimit.create_dataset(;dir=joinpath(path, which));
+            file[which] = input_df;
+        end;
+    else
+        input_df = JLD2.load(cached_df, which);
+    end
+    return input_df
+end
+
+function load_dataset(path, params::LKD.InputParams)
+    input_df = get_timit_train_dataframe(path);
     filtered_df = filter(
-        :words => x-> any([word in x for word in params.words]), train) |> 
+        :words => x-> any([word in x for word in params.words]), input_df) |> 
         df -> filter(:dialect => x->x ∈ params.dialects, df) |> 
         df -> filter(:gender => x->x ∈ params.gender, df)
     return filtered_df

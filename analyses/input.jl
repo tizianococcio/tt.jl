@@ -4,12 +4,12 @@ using SpikeTimit
 using LKD
 using tt
 using Statistics
+using JLD2
 
-# "export LD_LIBRARY_PATH=/Users/tiziano/.julia/conda/3/lib""
 conf = YAML.load_file(joinpath(@__DIR__, "../conf/paths.yml"))
 path_dataset = conf["dataset_path"]
 
-train = SpikeTimit.create_dataset(; dir = joinpath(path_dataset, "train"))
+train = tt.get_timit_train_dataframe(path_dataset)
 dict = SpikeTimit.create_dictionary(file=joinpath(path_dataset, "DOC", "TIMITDIC.TXT"));
 
 # just to find the most common word: maybe will be useful later
@@ -30,7 +30,7 @@ params = tt.LKD.InputParams(
     dialects=[1,2,3,4,5,6,7,8], 
     samples=8, 
     gender=['f','m'], 
-    words=["music"], 
+    words=["music", "rag"], 
     repetitions=3, 
     shift_input=2, 
     encoding="cochlea70"
@@ -48,7 +48,7 @@ labels = word_inputs[3] # labels (1 array per word)
 
 
 
-## PART E
+## Data for Experiment E
 ## ----------------------------------------------- ## -----------------------------------------------
 ## plot 4 input words (spike representation) both encoded with cochlea and with bae and the respective network representation after 10 passess through the data for both the triplet and the voltage stdp network
 
@@ -60,120 +60,92 @@ labels = word_inputs[3] # labels (1 array per word)
 # "that" => 612
 # "she" => 572
 
-weights_params = tt.LKD.WeightParams()
-conf = YAML.load_file(joinpath(@__DIR__, "../conf/paths.yml"))
-path_dataset = conf["dataset_path"]
-path_storage = conf["training_storage_path"]
-swords = ["the", "a", "water", "greasy"]
-swords[1:1]
 
-# to store plotting data
-in_spikes = []
-sim_triplet = []
-sim_voltage = []
-for i in 1:length(swords)
-    params = tt.LKD.InputParams(
-        dialects=[1], 
-        samples=1, 
-        gender=['m'], 
-        words=swords[i:i], 
-        repetitions=1, 
-        shift_input=2, 
-        encoding="cochlea70"
-    )
-    df = tt.load_dataset(path_dataset, params)
-    word_inputs = SpikeTimit.select_words(
-        df, 
-        samples=params.samples, 
-        params.words, 
-        encoding=params.encoding);
-
-    # getting the spikes here
-    duration, spikes, labels = word_inputs
-    push!(in_spikes, spikes)
-
-    # now run simulation 10 times for each input and type (triplet/voltage), get raster and firing rates
-    # TripletSTDP
-    input = tt.InputLayer(params, weights_params, path_dataset, path_storage, tt.TripletSTDP())
-    snn = tt.SNNLayer(input)
+function exp_E(encoding::String)
+    weights_params = tt.LKD.WeightParams()
+    conf = YAML.load_file(joinpath(@__DIR__, "../conf/paths.yml"))
+    path_dataset = conf["dataset_path"]
+    path_storage = conf["training_storage_path"]
+    swords = ["the", "a", "water", "greasy"]
+    swords[1:1]
     
-    raster_triplet = []
-    frs_triplet = []
-    println("triplet simulations for word '$(swords[i])'")
-    for j in 1:10
-        println("iteration $j")
-        W, T, R, trackers = tt.train(snn);
-        snn.weights = W;
-        push!(raster_triplet, T);
-        push!(frs_triplet, R[1,:]);
-    end
-
-    # VoltageSTDP
-    input = tt.InputLayer(params, weights_params, path_dataset, path_storage, tt.VoltageSTDP())
-    snn = tt.SNNLayer(input)
+    # to store plotting data
+    in_spikes = []
+    sim_triplet = []
+    sim_voltage = []
+    for i in 1:length(swords)
+        params = tt.LKD.InputParams(
+            dialects=[1], 
+            samples=1, 
+            gender=['m'], 
+            words=swords[i:i], 
+            repetitions=1, 
+            shift_input=100, # ms
+            encoding=encoding
+        )
+        df = tt.load_dataset(path_dataset, params)
+        word_inputs = SpikeTimit.select_words(
+            df, 
+            samples=params.samples, 
+            params.words, 
+            encoding=params.encoding);
     
-    raster_voltage = []
-    frs_voltage = []
-    println("voltage simulations for word '$(swords[i])'")
-    for j in 1:10
-        println("iteration $j")
-        W, T, R, trackers = tt.train(snn);
-        snn.weights = W;
-        push!(raster_voltage, T);
-        push!(frs_voltage, R[1,:]);
+        # getting the spikes here
+        duration, spikes, labels = word_inputs
+        push!(in_spikes, spikes)
+    
+        # now run simulation 10 times for each input and type (triplet/voltage), get raster and firing rates
+        # TripletSTDP
+        input = tt.InputLayer(params, weights_params, path_dataset, path_storage, tt.TripletSTDP())
+        snn = tt.SNNLayer(input)
+        
+        raster_triplet = []
+        frs_triplet = []
+        println("triplet simulations for word '$(swords[i])'")
+        for j in 1:10
+            println("iteration $j")
+            out = tt.train(snn);
+            snn.weights = out.weights;
+            push!(raster_triplet, out.firing_times);
+            push!(frs_triplet, out.firing_rates[1,:]);
+        end
+    
+        # VoltageSTDP
+        input = tt.InputLayer(params, weights_params, path_dataset, path_storage, tt.VoltageSTDP())
+        snn = tt.SNNLayer(input)
+        
+        raster_voltage = []
+        frs_voltage = []
+        println("voltage simulations for word '$(swords[i])'")
+        for j in 1:10
+            println("iteration $j")
+            out = tt.train(snn);
+            snn.weights = out.weights;
+            push!(raster_voltage, out.firing_times);
+            push!(frs_voltage, out.firing_rates[1,:]);
+        end
+    
+        # Note: I save all spikes for each simulation, although I will probably only want the last one
+        push!(sim_triplet, (net_spikes=raster_triplet, net_fr=frs_triplet));
+        push!(sim_voltage, (net_spikes=raster_voltage, net_fr=frs_voltage));
     end
-
-    # Note: I save all spikes for each simulation, although I will probably only want the last one
-    push!(sim_triplet, (net_spikes=raster_triplet, net_fr=frs_triplet));
-    push!(sim_voltage, (net_spikes=raster_voltage, net_fr=frs_voltage));
+    
+    # Save experiment data
+    folder = joinpath(conf["experiments"], "data_exp_E_$encoding.jld2")
+    fid = Dict()
+    fid["sim_triplet"] = sim_triplet
+    fid["sim_voltage"] = sim_voltage
+    fid["in_spikes"] = in_spikes
+    save(folder, fid)
 end
 
-# Save experiment data
-folder = joinpath(conf["experiments"], "E_cochlea.jld2")
-fid = Dict()
-fid["sim_triplet"] = sim_triplet
-fid["sim_voltage"] = sim_voltage
-fid["in_spikes"] = in_spikes
-save(folder, fid)
-# use load(folder) to read
-data = load(folder)
 
+exp_E("bae");
+data = load(joinpath(conf["experiments"], "data_exp_E_bae.jld2"))
 
-my_xlims = [0, 4000]
-inputs_cochlea = copy(in_spikes)
-# scatter of input spikes
-scatter_cochlea = [
-    scatter(SpikeTimit.get_raster_data(inputs_cochlea[i][1]),m=(2, :black, stroke(0)), leg = :none, tickfontsize=5, labelfontsize=5, grid=false, xlabel="Time (ms)", ylabel=(i == 1 ? "Neurons" : ""), xlims=my_xlims/10000) 
-        for i in 1:length(inputs_cochlea)
-]
+exp_E("cochlea70");
+data = load(joinpath(conf["experiments"], "data_exp_E_bae.jld2"))
 
-# scatter of network spikes after training
-net_scatter_cochlea_trip = [
-    scatter(SpikeTimit.get_raster_data(sim_triplet[i].net_spikes[10]), m=(1, :black, stroke(0)), leg = :none, yticks=false, xtickfontsize=5, labelfontsize=5, xlabel="Time (ms)", ylabel=(i == 1 ? "Neurons" : ""), grid=false, xlims=my_xlims/10)
-        for i in 1:length(swords)
-]
-
-# firing rates
-firing_rates_trip = [
-    plot(mean(sim_triplet[i].net_fr), leg=false, c=:black, tickfontsize=5, labelfontsize=5, 
-    xlabel="Time (ms) dt", ylabel=(i == 1 ? "Hz" : ""), grid=false, xlims=my_xlims) 
-        for i in 1:length(swords)
-]
-
-# all together
-t1 = ["$(swords[i]) ($i)" for j in 1:1, i in 1:4]
-t2 = ["" for j in 1:1, i in 5:12]
-titles = hcat(t1, t2)
-lyt = @layout [a b c d; e f g h; i j k l]
-mnp = reduce(hcat, [scatter_cochlea, net_scatter_cochlea_trip, firing_rates_trip])
-plot(mnp..., layout=lyt, size=(800, 400), title=titles, titleloc = :center, titlefont=7)
-savefig("triplet_bae_10iter.svg");
-
-
-plot(net_scatter_cochlea_trip...)
-i = 3
-scatter(SpikeTimit.get_raster_data(sim_triplet[i].net_spikes[10]), m=(1.2, :gray, stroke(0)), alpha=0.7)
-savefig("scattertest.pdf");
 
 ## PART A
 ## ----------------------------------------------- ## -----------------------------------------------
