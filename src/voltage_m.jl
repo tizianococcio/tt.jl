@@ -1,21 +1,18 @@
-using Printf
-using ProgressBars
-using Distributions
+# Version of the voltage-stdp network that stores measurements for network analysis
 
-const global SIM_VER = "0.1.6"
+using Printf
 
 #this file is part of litwin-kumar_doiron_formation_2014
 #Copyright (C) 2014 Ashok Litwin-Kumar
 #see README for more information
-function sim(weights::Matrix{Float64},
+function sim_m(weights::Matrix{Float64},
 			popmembers::Matrix{Int64},
 			spikes,#::SpikeTimit.FiringTimes,
 			transcriptions::SpikeTimit.Transcriptions,
 			net::LKD.NetParams,
 			store::LKD.StoreParams,
 			weights_params::LKD.WeightParams,
-			projections::LKD.ProjectionParams,
-			tri_stdp::TripletSTDP)
+			projections::LKD.ProjectionParams, stdp::VoltageSTDP)
 
 	@unpack dt, simulation_time, learning =	net
 	@unpack folder, save_weights, save_states, save_network, save_timestep = store
@@ -176,35 +173,25 @@ function sim(weights::Matrix{Float64},
 	word_v = Matrix{Float64}(undef, Ne,measurements_per_word)
 	phone_v =Matrix{Float64}(undef, Ne,measurements_per_phone)
 
-	println("starting simulation v$SIM_VER")
-	# trackers for 3 neurons
-	#voltage_neuron_1_tracker = 0.0*Vector{Float64}(undef,Nsteps)
-	#adaptation_current_neuron_1_tracker = 0.0*Vector{Float64}(undef,Nsteps)
-	#adaptive_threshold = 0.0*Vector{Float64}(undef,Nsteps)
-	voltage_tracker = 0.0*Vector{Float64}(undef,Nsteps)
-	adaptation_current_tracker = 0.0*Vector{Float64}(undef,Nsteps)
-	adaptive_threshold_tracker = 0.0*Vector{Float64}(undef,Nsteps)
+	println("starting simulation [with traces]")
+
+	# trackers
+	voltage_neuron_1_tracker = 0.0*Vector{Float64}(undef,Nsteps)
+	adaptation_current_neuron_1_tracker = 0.0*Vector{Float64}(undef,Nsteps)
+	adaptive_threshold = 0.0*Vector{Float64}(undef,Nsteps)
+	u_trace = 0.0*Vector{Float64}(undef,Nsteps)
+	v_trace = 0.0*Vector{Float64}(undef,Nsteps)
+
+	# synapses from neuron 1 to all E neurons
+	synapses_one = findall(weights[1,1:Ne] .!= 0.0)
+	weight_tracker = Matrix{Float64}(undef, Nsteps,length(synapses_one))
 	
     nzRowsAll = [findall(weights[nn,1:Ne].!=0) for nn = 1:Ncells] #Dick: for all neurons lists E postsynaptic neurons
     nzColsEE  = [findall(weights[1:Ne,mm].!=0) for mm = 1:Ne]     #Dick: for E neurons lists E presynaptic neurons
-    nzRowsEE  = [findall(weights[mm,1:Ne].!=0) for mm = 1:Ne]     #Dick: for E neurons lists E postsynaptic neurons
     nzColsIE  = [findall(weights[Ne+1:Ncells,mm].!=0).+Ne for mm = 1:Ne] #Dick: for E neurons lists I presynaptic neurons
     nzforEtoAll  = [findall(weights[nn,:].!=0) for nn = 1:Ne] #for E neurons lists All postsynaptic neurons
     nzforItoAll  = [findall(weights[nn,:].!=0) for nn = Ne+1:Ncells] #for I neurons lists All postsynaptic neurons
 
-	# presynaptic detectors
-	r1 = zeros(Ne)
-	r2 = zeros(Ne)
-
-	# postsynaptic detectors
-	o1 = zeros(Ne)	
-	o2 = zeros(Ne)
-
-	# detectors trackers
-	do1 = 0.0*Vector{Float64}(undef,Nsteps)
-	do2 = 0.0*Vector{Float64}(undef,Nsteps)
-	dr1 = 0.0*Vector{Float64}(undef,Nsteps)
-	dr2 = 0.0*Vector{Float64}(undef,Nsteps)
 
 	#begin main simulation loop
 	iterations = ProgressBar(1:Nsteps)
@@ -280,9 +267,9 @@ function sim(weights::Matrix{Float64},
 			if cc <= Ne	# is the current cell an E neuron?
 				vth[cc] += dt*(vth0 - vth[cc])/tauth;	# Adaptive threshold of E neurons (formula 2)
 				wadapt[cc] += dt*(aw_adapt*(v[cc]-vleake) - wadapt[cc])/tauw_adapt;	# Adaptation current of E neurons (formula 3)
-				# u_vstdp[cc] += dt*(v[cc] - u_vstdp[cc])/tauu;	# update membrane voltage
-				# v_vstdp[cc] += dt*(v[cc] - v_vstdp[cc])/tauv;	# update membrane voltage
-				# x_vstdp[cc] -= dt*x_vstdp[cc]/taux;	# update spike train
+				u_vstdp[cc] += dt*(v[cc] - u_vstdp[cc])/tauu;	# update membrane voltage
+				v_vstdp[cc] += dt*(v[cc] - v_vstdp[cc])/tauv;	# update membrane voltage
+				x_vstdp[cc] -= dt*x_vstdp[cc]/taux;	# update spike train
 			end
 
 			if t > (lastSpike[cc] + taurefrac) #not in refractory period
@@ -303,14 +290,11 @@ function sim(weights::Matrix{Float64},
 						spiked[cc] = true
 					end
 				end
-
-				voltage_tracker[tt] = v[1]
-				adaptation_current_tracker[tt] = wadapt[1]
-				adaptive_threshold_tracker[tt] = vth[1]
-				do1[tt] = o1[1]
-				dr1[tt] = r1[1]
-				do2[tt] = o2[1]
-				dr2[tt] = r2[1]
+				voltage_neuron_1_tracker[tt] = v[1]
+				adaptation_current_neuron_1_tracker[tt] = wadapt[1]
+				adaptive_threshold[tt] = vth[1]
+				u_trace[tt] = u_vstdp[1]
+				v_trace[tt] = v_vstdp[1]
 
 				if spiked[cc] #spike occurred
 					push!(times[cc], t);	# Times at which the neurons spiked
@@ -319,7 +303,7 @@ function sim(weights::Matrix{Float64},
                     trace_istdp[cc] += 1.0; #increase the spike trace
 
                     if cc <= Ne
-                        # x_vstdp[cc] += 1.0/taux;
+                        x_vstdp[cc] += 1.0/taux;
                         vth[cc] = vth0 + ath;
                         wadapt[cc] += bw_adapt
                     end
@@ -341,14 +325,13 @@ function sim(weights::Matrix{Float64},
 		if learning
 			# run on pre-synaptic cells.
 			for cc = 1:Ncells
-				# istdp (formula 6)
 				if spiked[cc] && (t > stdpdelay)
 					if cc <= Ne                 # excitatory neuron fired, potentiate i inputs
-						for dd in nzColsIE[cc]  # loop over postsynaptic nonzero synapses
+						for dd in nzColsIE[cc]  # only loop over nonzero synapses
 							weights[dd,cc] += eta*trace_istdp[dd]
 						(weights[dd,cc] > jeimax) && (weights[dd,cc] = jeimax);
 						end
-					else       # presynaptic inhibitory neuron fired, modify outputs to e neurons
+					else       # inhibitory neuron fired, modify outputs to e neurons
 						for dd in nzRowsAll[cc] # only loop over nonzero synapses
 							weights[cc,dd] += eta*(trace_istdp[dd] - alpha)
 							(weights[cc,dd] > jeimax) && (weights[cc,dd] = jeimax);
@@ -356,35 +339,29 @@ function sim(weights::Matrix{Float64},
 						end
 					end
 				end # end istdp
-
-				# triplet version 3
-				if (t > stdpdelay) && (cc <= Ne)
-					if spiked[cc]
-						r1[cc] += 1
-						o1[cc] += 1
-						# presynaptic neuron fired
-						for dd in nzRowsEE[cc]  # loop over postsynaptic
-							# LTD
-							weights[cc,dd] -= o1[dd] * (tri_stdp.A_minus_2 + tri_stdp.A_minus_3 * r2[cc]);
-							(weights[cc,dd] < jeemin) && (weights[cc,dd] = jeemin);
+				
+				# istdp (formula 6)
+				if (t > stdpdelay) && (cc <= Ne) # condition shared for LTP and LTD
+					#vstdp, LTD component
+					if spiked[cc] #did pre spike
+						for dd in nzRowsAll[cc] # loop over post synaptic E neurons
+							if u_vstdp[dd] > thetaltd
+								weights[cc,dd] -= altd*(u_vstdp[dd]-thetaltd)
+							   (weights[cc,dd] < jeemin) && (weights[cc,dd] = jeemin);
+							end
 						end
-						# postsynaptic neuron fired
-						for dd in nzColsEE[cc] # loop over presynaptic
-							# LTP
-							weights[dd,cc] += r1[dd] * (tri_stdp.A_plus_2 + tri_stdp.A_plus_3 * o2[cc]);
-							(weights[dd,cc] > jeemax) && (weights[dd,cc] = jeemax);
+					end # end LTD
+	
+					#vstdp, LTP component
+					if (v[cc] > thetaltp) && (v_vstdp[cc] > thetaltd)
+						for dd in nzColsEE[cc]  # loop over pre synaptic E neurons
+							weights[dd,cc] += dt*altp*x_vstdp[dd]*(v[cc] - thetaltp)*(v_vstdp[cc] - thetaltd);
+						   (weights[dd,cc] > jeemax) && (weights[dd,cc] = jeemax);
 						end
-						r2[cc] += 1
-						o2[cc] += 1
-					end
-					r1[cc] -= dt/tri_stdp.tau_plus * r1[cc]
-					r2[cc] -= dt/tri_stdp.tau_x * r2[cc]
-					o1[cc] -= dt/tri_stdp.tau_minus * o1[cc]
-					o2[cc] -= dt/tri_stdp.tau_y * o2[cc]
-				end
-
+					end # end LTP
+				 end # conditions for LTP/D
 			end
-
+			weight_tracker[tt,:] = weights[1,synapses_one]
 		end #end loop over cells
 
 
@@ -397,7 +374,7 @@ function sim(weights::Matrix{Float64},
 		rates[2,tt] = mean(trace_istdp[Ne+1:end])/2/tauy*1000
 
 		if (tt == 1 || mod(tt, save_timestep) == 0) && save_weights
-			@time LKD.save_network_weights(weights, tt/1000, folder)
+			@time LKD.save_network_weights(weights, t/1000, folder)
 		end
 
 		if save_states
@@ -440,16 +417,15 @@ function sim(weights::Matrix{Float64},
 		end #saving states
 	end #end loop over time
 	
-	if save_network
-		@time LKD.save_network_weights(weights, simulation_time/1000, folder)
-		@time LKD.save_network_spikes(times, folder)
-		@time LKD.save_network_rates(rates, folder)	# Save mean weights over inhibitory neurons
-		
-		LKD.save_neuron_membrane(voltage_tracker, folder)
-		LKD.save_neuron_membrane(adaptation_current_tracker, folder; type="w_adapt")
-		LKD.save_neuron_membrane(adaptive_threshold_tracker, folder; type="adaptive_threshold")
-		println("Done saving parameters")
-	end
 
-	return weights, times, rates, (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, dr1, do1, dr2, do2, [])
+	@time LKD.save_network_weights(weights, simulation_time/1000, folder)
+	@time LKD.save_network_spikes(times, folder)
+	@time LKD.save_network_rates(rates, folder)	# Save mean weights over inhibitory neurons
+	println("Done saving parameters")
+
+	LKD.save_neuron_membrane(voltage_neuron_1_tracker, folder)
+	LKD.save_neuron_membrane(adaptation_current_neuron_1_tracker, folder; type="w_adapt")
+	LKD.save_neuron_membrane(adaptive_threshold, folder; type="adaptive_threshold")
+
+	return weights, times, rates, (voltage_neuron_1_tracker, adaptation_current_neuron_1_tracker, adaptive_threshold, u_trace, v_trace, weight_tracker)
 end

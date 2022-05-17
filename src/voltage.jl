@@ -415,5 +415,5 @@ function sim(weights::Matrix{Float64},
 	LKD.save_neuron_membrane(adaptation_current_neuron_1_tracker, folder; type="w_adapt")
 	LKD.save_neuron_membrane(adaptive_threshold, folder; type="adaptive_threshold")
 
-	return weights, times, rates, (voltage_neuron_1_tracker, adaptation_current_neuron_1_tracker, adaptive_threshold)
+	return weights, times, rates, (voltage_neuron_1_tracker, adaptation_current_neuron_1_tracker, adaptive_threshold, [], [], [])
 end

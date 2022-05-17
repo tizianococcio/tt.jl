@@ -24,8 +24,10 @@ function SNNLayer(in::tt.InputLayer)
     )
 end
 
-trackers_triplet = Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}} # (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, r, o)
-trackers_voltage = Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}}
+# (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, r1, o1, r2, o2, weight_tracker)
+trackers_triplet = Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Matrix{Float64}}
+# (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, u, v, weight_tracker)
+trackers_voltage = Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Matrix{Float64}}
 @with_kw struct SNNOut
     weights::Matrix{Float64}
     firing_times::Vector{Vector{Float64}}
@@ -35,9 +37,14 @@ trackers_voltage = Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}}
     word_states::Vector{Any}
 end
 
-function _run(snn::SNNLayer)
-    W, T, R, trackers = tt.sim(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
-        snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp);
+function _run(snn::SNNLayer, traces::Bool=false)
+    if traces
+        W, T, R, trackers = tt.sim_m(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
+            snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp);
+    else
+        W, T, R, trackers = tt.sim(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
+            snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp);
+    end
     ws = LKD.read_network_states(joinpath(snn.store.folder,"word_states"));
     ps = LKD.read_network_states(joinpath(snn.store.folder,"phone_states"));
     return SNNOut(W, T, R, trackers, ps, ws)
@@ -50,6 +57,12 @@ function train(snn::SNNLayer)
     LKD.makefolder(snn.store.folder);
     LKD.cleanfolder(snn.store.folder);
     return _run(snn)
+end
+
+function train_with_traces(snn::SNNLayer)
+    LKD.makefolder(snn.store.folder);
+    LKD.cleanfolder(snn.store.folder);
+    return _run(snn, true)
 end
 
 

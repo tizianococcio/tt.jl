@@ -7,7 +7,7 @@ const global SIM_VER = "0.1.6"
 #this file is part of litwin-kumar_doiron_formation_2014
 #Copyright (C) 2014 Ashok Litwin-Kumar
 #see README for more information
-function sim(weights::Matrix{Float64},
+function sim_m(weights::Matrix{Float64},
 			popmembers::Matrix{Int64},
 			spikes,#::SpikeTimit.FiringTimes,
 			transcriptions::SpikeTimit.Transcriptions,
@@ -176,7 +176,7 @@ function sim(weights::Matrix{Float64},
 	word_v = Matrix{Float64}(undef, Ne,measurements_per_word)
 	phone_v =Matrix{Float64}(undef, Ne,measurements_per_phone)
 
-	println("starting simulation v$SIM_VER")
+	println("starting simulation v$SIM_VER [with traces]")
 	# trackers for 3 neurons
 	#voltage_neuron_1_tracker = 0.0*Vector{Float64}(undef,Nsteps)
 	#adaptation_current_neuron_1_tracker = 0.0*Vector{Float64}(undef,Nsteps)
@@ -205,6 +205,10 @@ function sim(weights::Matrix{Float64},
 	do2 = 0.0*Vector{Float64}(undef,Nsteps)
 	dr1 = 0.0*Vector{Float64}(undef,Nsteps)
 	dr2 = 0.0*Vector{Float64}(undef,Nsteps)
+
+	# synapses from neuron 1 to all E neurons
+	synapses_one = findall(weights[1,1:Ne] .!= 0.0)
+	weight_tracker = Matrix{Float64}(undef, Nsteps,length(synapses_one))
 
 	#begin main simulation loop
 	iterations = ProgressBar(1:Nsteps)
@@ -384,7 +388,7 @@ function sim(weights::Matrix{Float64},
 				end
 
 			end
-
+			weight_tracker[tt,:] = weights[1,synapses_one]
 		end #end loop over cells
 
 
@@ -451,5 +455,5 @@ function sim(weights::Matrix{Float64},
 		println("Done saving parameters")
 	end
 
-	return weights, times, rates, (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, dr1, do1, dr2, do2, [])
+	return weights, times, rates, (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, dr1, do1, dr2, do2, weight_tracker)
 end
