@@ -24,11 +24,13 @@ function _get_timit_dataframe(path::String; which="train")
         mkpath(cache_path);
     end
     if !isfile(cached_df)
+        print("Creating cached dataframe");
         jldopen(cached_df, "w") do file
             input_df = SpikeTimit.create_dataset(;dir=joinpath(path, which));
             file[which] = input_df;
         end;
     else
+        print("Reading cached dataframe");
         input_df = JLD2.load(cached_df, which);
     end
     return input_df

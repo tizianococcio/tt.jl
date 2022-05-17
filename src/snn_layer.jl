@@ -24,6 +24,8 @@ function SNNLayer(in::tt.InputLayer)
     )
 end
 
+# (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker)
+trackers_triplet_basic = Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}}
 # (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, r1, o1, r2, o2, weight_tracker)
 trackers_triplet = Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Matrix{Float64}}
 # (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, u, v, weight_tracker)
@@ -32,7 +34,7 @@ trackers_voltage = Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}, Vect
     weights::Matrix{Float64}
     firing_times::Vector{Vector{Float64}}
     firing_rates::Matrix{Float32}
-    trackers:: Union{trackers_voltage, trackers_triplet} 
+    trackers:: Union{trackers_voltage, trackers_triplet_basic, trackers_triplet} 
     phone_states::Vector{Any}
     word_states::Vector{Any}
 end
@@ -91,7 +93,7 @@ function load(in::tt.InputLayer)
     adaptive_threshold_tracker = LKD.read_neuron_membrane(in.store.folder; type="adaptive_threshold")
     trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker
     in.weights = W[end][2]
-    return (snn_layer=SNNLayer(in), states=(weights=W, firing_times=T, firing_rates=R, phone_states=SS_phones, word_states=SS_words, trackers=trackers))
+    return (snn_layer=SNNLayer(in), out=SNNOut(W[end][2], T, R, trackers, SS_phones, SS_words), weights_trace=W)
 end
 
 """
@@ -100,6 +102,7 @@ inject input from new input layer into a pretrained network layer
 function inject(new::tt.InputLayer, old::tt.SNNLayer)
     old.spikes_dt = new.spikes_dt
     old.transcriptions_dt = new.transcriptions_dt
-    new.net.simulation_time = old.net.simulation_time # copy simulation time over to be used in the classifier
+    #new.net.simulation_time = old.net.simulation_time # copy simulation time over to be used in the classifier
+    old.net.simulation_time = new.net.simulation_time # update simulation time
     return old
 end

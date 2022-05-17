@@ -102,6 +102,8 @@ fromdisk = load(joinpath(folder, "data.jld2"))
 trackers_trip = fromdisk["triplet"]
 trackers_volt = fromdisk["voltage"]
 
+t_volt, t_adaptI, t_adaptTh, r1, o1, r2, o2, t_weight_trace = trackers_trip
+v_volt, v_adaptI, v_adaptTh, u_tr, v_tr, v_weight_trace = trackers_volt
 
 
 # plot grid
@@ -109,8 +111,6 @@ t_ft = convert(Vector{Vector{Float64}}, t_ft)
 v_ft = convert(Vector{Vector{Float64}}, v_ft)
 psr_t = scatter(SpikeTimit.get_raster_data(t_ft), m=(1, :black, stroke(0)), leg = :none, yticks=false, xtickfontsize=5, labelfontsize=5, grid=false)
 psr_v = scatter(SpikeTimit.get_raster_data(v_ft), m=(1, :black, stroke(0)), leg = :none, yticks=false, xtickfontsize=5, labelfontsize=5, grid=false)
-t_volt, t_adaptI, t_adaptTh, r1, o1, r2, o2, t_weight_trace = trackers_trip
-v_volt, v_adaptI, v_adaptTh, u_tr, v_tr, v_weight_tracker = trackers_volt
 pw_t = plot(t_weight_trace[10000:end,:], leg=:none, color=:black, alpha=0.3, title="Triplet: synapses 1-to-all")
 pw_v = plot(v_weight_tracker[10000:end,:], leg=:none, color=:black, alpha=0.3, title="Voltage: synapses 1-to-all")
 pmb_t = plot(t_adaptI, color=:black);
@@ -130,22 +130,49 @@ f = Figure(resolution = (1000, 600))
 ga = f[1:3, 1] = GridLayout()
 gb = f[1:3, 2] = GridLayout()
 
-ax = Axis(ga[1,1])
+ax1 = Axis(ga[1,1], title="Triplet STDP", ylabel="Neuron", ytickalign=1)
 x,y = SpikeTimit.get_raster_data(t_ft)
 CairoMakie.scatter!(x, y, color=:black, markersize=1)
-hidedecorations!(ax; grid=true, ticklabels = false, ticks = false, label=false)
+hidedecorations!(ax1; grid=true, ticklabels = false, ticks = false, label=false)
+hidexdecorations!(ax1);
 
+ax2 = Axis(ga[2,1], ylabel="Weight", ytickalign=1);
+data_matrix = t_weight_trace[10000:end,:]';
+CairoMakie.series!(data_matrix, solid_color=(:black, 0.3), strokewidth=0, linewidth=1, markersize=0);
+hidedecorations!(ax2; grid=true, ticklabels = false, ticks = false, label=false);
+hidexdecorations!(ax2);
 
-ax = Axis(ga[2,1])
-data_matrix = t_weight_trace[10000:end,:]'
-CairoMakie.series!(data_matrix, solid_color=(:black, 0.3), strokewidth=0, linewidth=1, markersize=0)
-hidedecorations!(ax; grid=true, ticklabels = false, ticks = false, label=false)
+ax3 = Axis(ga[3,1], xlabel="Simulation timestep", ylabel="mA", xtickalign=1, ytickalign=1, height=100);
+CairoMakie.lines!(t_adaptI, color=:black);
+hidedecorations!(ax3; grid=true, ticklabels = false, ticks = false, label=false);
 
-ax = Axis(ga[3,1])
-CairoMakie.lines!(t_adaptI)
-hidedecorations!(ax; grid=true, ticklabels = false, ticks = false, label=false)
+ax4 = Axis(gb[1,1], title="Voltage STDP");
+x,y = SpikeTimit.get_raster_data(v_ft);
+CairoMakie.scatter!(x, y, color=:black, markersize=1);
+hidedecorations!(ax4; grid=true, ticklabels = false, ticks = false, label=false);
+hidexdecorations!(ax4);
+hideydecorations!(ax4);
+linkyaxes!(ax1, ax4);
 
+ax5 = Axis(gb[2,1]);
+data_matrix = v_weight_trace[10000:end,:]';
+CairoMakie.series!(data_matrix, solid_color=(:black, 0.3), strokewidth=0, linewidth=1, markersize=0);
+hidedecorations!(ax5; grid=true, ticklabels = false, ticks = false, label=false);
+hidexdecorations!(ax5);
+hideydecorations!(ax5);
+
+ax6 = Axis(gb[3,1], xlabel="Simulation timestep", xtickalign=1, height=100);
+CairoMakie.lines!(v_adaptI, color=:black);
+hidedecorations!(ax6; grid=true, ticklabels = false, ticks = false, label=false);
+hideydecorations!(ax6);
+
+linkyaxes!(ax2, ax5);
+linkyaxes!(ax3, ax6);
+ax3.xticks = 0:30000:60000
+ax6.xticks = 0:30000:60000
+colgap!(ga, 10)
+colgap!(gb, 10)
+rowgap!(ga, 10)
+rowgap!(gb, 10)
 f
-
-fig, ax, sp = CairoMakie.series(data_matrix, solid_color=(:black, 0.3), strokewidth=0, linewidth=1, markersize=0)
-fig
+save("larger.pdf", f, pt_per_unit = 2)
