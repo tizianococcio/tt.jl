@@ -324,6 +324,12 @@ version = "0.8.6"
 deps = ["ArgTools", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 
+[[deps.DrWatson]]
+deps = ["Dates", "FileIO", "JLD2", "LibGit2", "MacroTools", "Pkg", "Random", "Requires", "Scratch", "UnPack"]
+git-tree-sha1 = "67e9001646db6e45006643bf37716ecd831d37d2"
+uuid = "634d3b9d-ee7a-5ddf-bec9-22491ea816e1"
+version = "2.9.1"
+
 [[deps.DualNumbers]]
 deps = ["Calculus", "NaNMath", "SpecialFunctions"]
 git-tree-sha1 = "5837a837389fccf076445fce071c8ddaea35a566"
@@ -706,7 +712,7 @@ version = "3.0.0+1"
 
 [[deps.LKD]]
 deps = ["BSON", "Distributions", "HDF5", "MLDataUtils", "MLJ", "MLJLinearModels", "MultivariateStats", "OrderedCollections", "Parameters", "Printf", "ProgressBars", "Random", "RandomNumbers", "SpikeTimit", "Statistics", "StatsBase", "ThreadTools", "UnPack"]
-path = "/Users/tiziano/Documents/RU/BSc/Thesis/code/libs/lkd.jl"
+path = "/Users/tiziano/Documents/RU/BSc/Thesis/src/libs/lkd.jl"
 uuid = "aabd4a8f-2854-44cd-a602-1faf469b581e"
 version = "0.1.0"
 
@@ -1439,7 +1445,7 @@ version = "2.1.4"
 
 [[deps.SpikeTimit]]
 deps = ["ColorSchemes", "DataFrames", "DataFramesMeta", "Distributions", "MAT", "MLDataUtils", "MLJLinearModels", "NPZ", "OrderedCollections", "Plots", "Random", "StatsBase", "UnPack"]
-path = "/Users/tiziano/Documents/RU/BSc/Thesis/code/libs/spiketimit.jl"
+path = "/Users/tiziano/Documents/RU/BSc/Thesis/src/libs/spiketimit.jl"
 uuid = "eac3d48c-576f-43d3-94ff-3eec29d558ce"
 version = "0.1.0"
 
