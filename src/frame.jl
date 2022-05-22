@@ -5,9 +5,25 @@ using Random
 using SpikeTimit
 using LKD
 using YAML
+using MacroTools
 
 function load_conf()
     return YAML.load_file(joinpath(@__DIR__, "../conf/paths.yml"))
+end
+
+function rawdatadir()
+    c = load_conf()
+    c["raw"]
+end
+
+function datasetdir()
+    c = load_conf()
+    c["dataset_path"]
+end
+
+function simsdir()
+    c = load_conf()
+    c["training_storage_path"]
 end
 
 function get_timit_train_dataframe(path::String)
@@ -176,4 +192,24 @@ function save_network(weight_matrix, population_matrix, storage_params, hard::Bo
         folder = LKD.cleanfolder(storage_params.folder);
     end
     LKD.save_network(population_matrix, weight_matrix, storage_params.folder)
+end
+
+"""
+from DrWatson
+https://github.com/JuliaDynamics/DrWatson.jl/blob/599a9b2c04837e9d2162a022baf3394376af0cd9/src/naming.jl
+"""
+macro strdict(vars...)
+    expr = Expr(:call, :Dict)
+	for var in vars
+		# Allow assignment syntax a = b
+		if @capture(var, a_ = b_)
+			push!(expr.args, :($(string(a)) => $(esc(b))))
+		# Allow single arg syntax a   → "a" = a
+		elseif @capture(var, a_Symbol)
+			push!(expr.args, :($(string(a)) => $(esc(a))))
+		else
+			return :(throw(ArgumentError("Invalid field syntax")))
+		end
+	end
+	return expr
 end
