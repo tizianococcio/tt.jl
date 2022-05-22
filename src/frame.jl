@@ -4,6 +4,7 @@ using DataFrames
 using Random
 using SpikeTimit
 using LKD
+using YAML
 
 function load_conf()
     return YAML.load_file(joinpath(@__DIR__, "../conf/paths.yml"))
