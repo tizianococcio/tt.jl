@@ -207,8 +207,10 @@ function sim_m(weights::Matrix{Float64},
 	dr2 = 0.0*Vector{Float64}(undef,Nsteps)
 
 	# synapses from neuron 1 to all E neurons
-	synapses_one = findall(weights[1,1:Ne] .!= 0.0)
-	weight_tracker = Matrix{Float64}(undef, Nsteps,length(synapses_one))
+	pre_synapses_one = findall(weights[1,1:Ne] .!= 0.0)
+	post_synapses_one = findall(weights[1:Ne,1] .!= 0.0)
+	weight_tracker_pre = Matrix{Float64}(undef, Nsteps,length(pre_synapses_one))
+	weight_tracker_post = Matrix{Float64}(undef, Nsteps,length(post_synapses_one))
 
 	#begin main simulation loop
 	iterations = ProgressBar(1:Nsteps)
@@ -388,7 +390,8 @@ function sim_m(weights::Matrix{Float64},
 				end
 
 			end
-			weight_tracker[tt,:] = weights[1,synapses_one]
+			weight_tracker_pre[tt,:] = weights[1, pre_synapses_one]
+			weight_tracker_post[tt,:] = weights[post_synapses_one, 1]
 		end #end loop over cells
 
 
@@ -454,6 +457,5 @@ function sim_m(weights::Matrix{Float64},
 		LKD.save_neuron_membrane(adaptive_threshold_tracker, folder; type="adaptive_threshold")
 		println("Done saving parameters")
 	end
-
-	return weights, times, rates, (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, dr1, do1, dr2, do2, weight_tracker)
+	return weights, times, rates, (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, dr1, do1, dr2, do2, (weight_tracker_pre, weight_tracker_post))
 end

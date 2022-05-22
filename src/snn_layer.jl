@@ -27,7 +27,7 @@ end
 # (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker)
 trackers_triplet_basic = Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}}
 # (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, r1, o1, r2, o2, weight_tracker)
-trackers_triplet = Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Matrix{Float64}}
+trackers_triplet = Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Tuple{Matrix{Float64}, Matrix{Float64}}}
 # (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, u, v, weight_tracker)
 trackers_voltage = Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Matrix{Float64}}
 @with_kw struct SNNOut
@@ -52,13 +52,31 @@ function _run(snn::SNNLayer, traces::Bool=false)
     return SNNOut(W, T, R, trackers, ps, ws)
 end
 
+function check_folder(folder)
+
+end
+
 """
 runs the simulation and stores the network states. Overwrite previous data.
 """
-function train(snn::SNNLayer)
-    LKD.makefolder(snn.store.folder);
-    LKD.cleanfolder(snn.store.folder);
-    return _run(snn)
+function train(snn::SNNLayer; overwrite=false)
+
+    if isdir(snn.store.folder)
+        if overwrite
+            LKD.makefolder(snn.store.folder);
+            LKD.cleanfolder(snn.store.folder);    
+            return _run(snn)
+        else
+            # load trained data and return it
+            println("Notice: a trained network already exists. Now loading it. To wipe it and run a new training pass overwrite=true.");
+            return load(snn.store.folder)
+        end
+    else
+        LKD.makefolder(snn.store.folder);
+        LKD.cleanfolder(snn.store.folder);
+        return _run(snn)
+    end
+
 end
 
 function train_with_traces(snn::SNNLayer)
@@ -73,9 +91,11 @@ runs the simulation on a previously trained network. Data for this network must 
 """
 function test(snn::SNNLayer)
     snn.net.learning = false
-    snn.store.save_states=false
+    LKD.makefolder(snn.store.folder)
+    snn.store.save_states=true
     snn.store.save_network=false
     snn.store.save_weights=false
+    println(snn.store)
     return _run(snn)
 end
 
@@ -94,6 +114,23 @@ function load(in::tt.InputLayer)
     trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker
     in.weights = W[end][2]
     return (snn_layer=SNNLayer(in), out=SNNOut(W[end][2], T, R, trackers, SS_phones, SS_words), weights_trace=W)
+end
+
+"""
+loads network from path, used to load an existing network in train()
+returns SNNOut
+"""
+function load(folder::String)
+    W = LKD.read_network_weights(folder)
+    T = LKD.read_network_spikes(folder)
+    R = LKD.read_network_rates(folder)
+    SS_words = LKD.read_network_states(joinpath(folder,"word_states"))
+    SS_phones = LKD.read_network_states(joinpath(folder,"phone_states"))
+    voltage_tracker = LKD.read_neuron_membrane(folder)
+    adaptation_current_tracker = LKD.read_neuron_membrane(folder; type="w_adapt")
+    adaptive_threshold_tracker = LKD.read_neuron_membrane(folder; type="adaptive_threshold")
+    trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker
+    return SNNOut(W[end][2], T, R, trackers, SS_phones, SS_words)
 end
 
 """

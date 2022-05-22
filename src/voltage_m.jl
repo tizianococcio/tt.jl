@@ -183,8 +183,10 @@ function sim_m(weights::Matrix{Float64},
 	v_trace = 0.0*Vector{Float64}(undef,Nsteps)
 
 	# synapses from neuron 1 to all E neurons
-	synapses_one = findall(weights[1,1:Ne] .!= 0.0)
-	weight_tracker = Matrix{Float64}(undef, Nsteps,length(synapses_one))
+	pre_synapses_one = findall(weights[1,1:Ne] .!= 0.0)
+	post_synapses_one = findall(weights[1:Ne,1] .!= 0.0)
+	weight_tracker_pre = Matrix{Float64}(undef, Nsteps,length(pre_synapses_one))
+	weight_tracker_post = Matrix{Float64}(undef, Nsteps,length(post_synapses_one))
 	
     nzRowsAll = [findall(weights[nn,1:Ne].!=0) for nn = 1:Ncells] #Dick: for all neurons lists E postsynaptic neurons
     nzColsEE  = [findall(weights[1:Ne,mm].!=0) for mm = 1:Ne]     #Dick: for E neurons lists E presynaptic neurons
@@ -361,7 +363,8 @@ function sim_m(weights::Matrix{Float64},
 					end # end LTP
 				 end # conditions for LTP/D
 			end
-			weight_tracker[tt,:] = weights[1,synapses_one]
+			weight_tracker_pre[tt,:] = weights[1, pre_synapses_one]
+			weight_tracker_post[tt,:] = weights[post_synapses_one, 1]
 		end #end loop over cells
 
 
@@ -374,7 +377,7 @@ function sim_m(weights::Matrix{Float64},
 		rates[2,tt] = mean(trace_istdp[Ne+1:end])/2/tauy*1000
 
 		if (tt == 1 || mod(tt, save_timestep) == 0) && save_weights
-			@time LKD.save_network_weights(weights, t/1000, folder)
+			@time LKD.save_network_weights(weights, tt/1000, folder)
 		end
 
 		if save_states
@@ -427,5 +430,5 @@ function sim_m(weights::Matrix{Float64},
 	LKD.save_neuron_membrane(adaptation_current_neuron_1_tracker, folder; type="w_adapt")
 	LKD.save_neuron_membrane(adaptive_threshold, folder; type="adaptive_threshold")
 
-	return weights, times, rates, (voltage_neuron_1_tracker, adaptation_current_neuron_1_tracker, adaptive_threshold, u_trace, v_trace, weight_tracker)
+	return weights, times, rates, (voltage_neuron_1_tracker, adaptation_current_neuron_1_tracker, adaptive_threshold, u_trace, v_trace, (weight_tracker_pre, weight_tracker_post))
 end
