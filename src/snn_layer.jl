@@ -52,10 +52,6 @@ function _run(snn::SNNLayer, traces::Bool=false)
     return SNNOut(W, T, R, trackers, ps, ws)
 end
 
-function check_folder(folder)
-
-end
-
 """
 runs the simulation and stores the network states. Overwrite previous data.
 """
