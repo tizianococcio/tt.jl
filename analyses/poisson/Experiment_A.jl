@@ -1,5 +1,4 @@
 using Statistics
-using YAML
 using tt
 using JLD2
 using LKD
@@ -59,7 +58,7 @@ end
 spikes_dt = (ft = fts, neurons = neurons);
 
 folder_name = "experimentA"
-conf = YAML.load_file(joinpath(@__DIR__, "../conf/paths.yml"))
+conf = tt.load_conf()
 path_dataset = conf["dataset_path"]
 path_storage = conf["training_storage_path"]
 folder = joinpath(path_storage, folder_name)

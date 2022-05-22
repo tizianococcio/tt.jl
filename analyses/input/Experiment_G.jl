@@ -1,11 +1,10 @@
 # Evolution of weights
 
-using YAML
 using Plots
 using tt
 using JLD2
 
-conf = YAML.load_file(joinpath(@__DIR__, "../conf/paths.yml"))
+conf = tt.load_conf()
 path_dataset = conf["dataset_path"]
 path_storage = conf["training_storage_path"]
 

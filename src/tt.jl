@@ -17,7 +17,6 @@ include("triplet_m.jl")
 include("input_layer.jl")
 include("snn_layer.jl")
 include("classification_layer.jl")
-include("ml.jl")
 
 greet() = print("Hello World!")
 

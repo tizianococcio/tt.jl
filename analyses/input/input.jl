@@ -1,4 +1,3 @@
-using YAML
 using Plots
 using SpikeTimit
 using LKD
@@ -6,7 +5,7 @@ using tt
 using Statistics
 using JLD2
 
-conf = YAML.load_file(joinpath(@__DIR__, "../conf/paths.yml"))
+conf = tt.load_conf()
 path_dataset = conf["dataset_path"]
 
 train = tt.get_timit_train_dataframe(path_dataset)
@@ -63,7 +62,7 @@ labels = word_inputs[3] # labels (1 array per word)
 
 function exp_E(encoding::String)
     weights_params = tt.LKD.WeightParams()
-    conf = YAML.load_file(joinpath(@__DIR__, "../conf/paths.yml"))
+    conf = tt.load_conf()
     path_dataset = conf["dataset_path"]
     path_storage = conf["training_storage_path"]
     swords = ["the", "a", "water", "greasy"]
@@ -377,7 +376,6 @@ heatmap(W[1:Ne,1:Ne])
 
 ## New input layer setup
 ## ----------------------------------------------- ## -----------------------------------------------
-using YAML
 using Plots
 import tt
 
@@ -391,7 +389,7 @@ params = tt.LKD.InputParams(
     encoding="bae"
 )
 weights_params = tt.LKD.WeightParams()
-conf = YAML.load_file(joinpath(@__DIR__, "../conf/paths.yml"))
+conf = tt.load_conf()
 path_dataset = conf["dataset_path"]
 path_storage = conf["training_storage_path"]
 

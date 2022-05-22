@@ -1,6 +1,5 @@
 using Plots
 using Statistics
-using YAML
 using tt
 using JLD2
 
@@ -17,7 +16,7 @@ function make_spike_raster(raw_spikes, id)
     )
 end
 
-conf = YAML.load_file(joinpath(@__DIR__, "../conf/paths.yml"))
+conf = tt.load_conf()
 folder = joinpath(conf["experiments"], "data_exp_E_bae.jld2")
 data = load(folder);
 swords = ["the", "a", "water", "greasy"]

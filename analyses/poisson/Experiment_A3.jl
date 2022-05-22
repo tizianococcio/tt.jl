@@ -1,5 +1,5 @@
+# Same as all the other "A" experiments, uses a Poisson input, with 250 neurons
 using Statistics
-using YAML
 using tt
 using JLD2
 using LKD
@@ -41,36 +41,35 @@ end
 simtime = 10000
 dt = 0.1f0
 firing_rate_hz = 0.4
-input = PoissonInput(firing_rate_hz, simtime, dt; neurons=2)
+input = PoissonInput(firing_rate_hz, simtime, dt; neurons=200)
 fts = []
-neurons = Vector{Vector{Int64}}()
-# for i in 1:200
-#     all_neurons_at_i = findall(x -> x != 0, input[i,:])
-# end
-
-ft1 = findall(x -> x != 0, input[1,:])
-ft2 = findall(x -> x != 0, input[2,:])
-fts = vcat(ft1,ft2)
+for i in 1:200
+    all_neurons_at_i = findall(x -> x != 0, input[i,:])
+    push!(fts, all_neurons_at_i)
+end
 fts = vcat(fts...)
+neurons = Vector{Vector{Int64}}(undef, length(fts))
 sort!(fts)
-for ft_i in eachindex(fts)
-    push!(neurons, [])
-    if fts[ft_i] in ft1
-        push!(neurons[ft_i], 1)
-    end
-    if fts[ft_i] in ft2
-        push!(neurons[ft_i], 2)
+for i in 1:200
+    timestamps = findall(x -> x != 0, input[i,:])
+    for time in timestamps
+        id = findfirst(x->x == time, fts)
+        if !isassigned(neurons, id)
+            neurons[id] = Vector{Int64}()
+        end
+        push!(neurons[id], i)
     end
 end
+
 spikes_dt = (ft = fts, neurons = neurons);
 
-folder_name = "experimentA1"
-conf = YAML.load_file(joinpath(@__DIR__, "../conf/paths.yml"))
+folder_name = "experimentA3"
+conf = tt.load_conf()
 path_dataset = conf["dataset_path"]
 path_storage = conf["training_storage_path"]
 folder = joinpath(path_storage, folder_name)
-weights_params = LKD.WeightParams(Ne=2, Ni=0)
-projections = LKD.ProjectionParams(npop = 2);
+weights_params = LKD.WeightParams(Ne=200, Ni=50)
+projections = LKD.ProjectionParams(npop = 10);
 W, popmembers = LKD.create_network(weights_params, projections);
 net = LKD.NetParams(learning=true, simulation_time=simtime);
 #net = LKD.NetParams(learning=true);
@@ -79,9 +78,6 @@ store = LKD.StoreParams(folder = joinpath(path_storage, folder_name),
 folder = LKD.makefolder(store.folder);
 folder = LKD.cleanfolder(store.folder);
 
-W
-initial_W = copy(W)
-W[2,1] = 2.86
 # dummy transcriptions data to make the simulation run
 params = tt.LKD.InputParams(
     dialects=[1], 
@@ -118,51 +114,8 @@ jldopen(joinpath(folder, "data.jld2"), "w") do file
 end
 
 volt, adaptI, adaptTh, r1, o1, r2, o2, weight_trace = trackers_trip
-
-weight_trace
-Plots.plot(weight_trace)
-
 volt, adaptI, adaptTh, u_tr, v_tr = trackers_volt
-plot(volt)
 
-fromdisk = load(joinpath(folder, "data.jld2"))
-trackers_trip = fromdisk["triplet"]
-trackers_volt = fromdisk["voltage"]
-
-
-
-# Plot with Makie
-
-
-# Plot for triplet stdp
-volt, adaptI, adaptTh, r1, o1, r2, o2, weight_trace = trackers_trip
-weight_trace
-plot(weight_trace, leg=:none)
-plot(weight_trace, xlims=[10000,14000])
-plot(volt, label="Membrane potential", linestyle=:solid, color=:black, linewidth=3, linealpha=0.4, xlims=[10000,14000]);
-plot!(adaptTh, label="Adaptive threshold", linestyle=:dash, color=:black, linewidth=1);
-plot!(adaptI, label="Adaptation current", linestyle=:dot, color=:black, linewidth=1);
-plot!([r1, r2, o1, o2], palette=palette(:tab20, 4), labels=["r1" "r2" "o1" "o2"]);
-ptrip = plot!(legend=:none, xlabel="Simulation time steps", title="Triplet STDP", tickfontsize=5, labelfontsize=5, titlefont=7);
-ptrip
-# Triplet detectors zoom
-plot([r1, r2, o1, o2], palette=palette(:tab20, 4), labels=["r1" "r2" "o1" "o2"]);
-zoom_triplet_det = plot!(xlims=[10000,18000], legend=:none);
-
-# Plot for voltage stdp
-volt, adaptI, adaptTh, u_tr, v_tr = trackers_volt
-pvolt = make_plot(volt, adaptTh, adaptI, "Voltage STDP");
-plot(pvolt)
-plot!(xlims=[10000,14000])
-pvc = palette(:tab10,4)
-pvolt = plot!([u_tr, v_tr], palette=pvc, labels=["u" "v"]);
-
-plot(pvolt);
-plot!(xlims=[10000,12000]);
-pvolt_detail = plot!([u_tr, v_tr], palette=pvc, labels=["u" "v"], legend=:none);
-
-lyt = @layout [a b; c d]
-plts = reduce(hcat, [ptrip, pvolt, zoom_triplet_det, pvolt_detail]);
-p = Plots.plot(plts..., layout = lyt, ylabel="mV", size=(800, 400), 
-    grid=:none, legend=[:outertopright :top :none :none])
-Plots.savefig(p, "ExperimentA1.pdf")
+# fromdisk = load(joinpath(folder, "data.jld2"))
+# trackers_trip = fromdisk["triplet"]
+# trackers_volt = fromdisk["voltage"]
