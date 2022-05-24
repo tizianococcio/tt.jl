@@ -451,5 +451,5 @@ function sim(weights::Matrix{Float64},
 		println("Done saving parameters")
 	end
 
-	return weights, times, rates, (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, dr1, do1, dr2, do2, Matrix{Float64}(undef, 0,0))
+	return weights, times, rates, (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, dr1, do1, dr2, do2, (Matrix{Float64}(undef, 0,0), Matrix{Float64}(undef, 0,0)))
 end
