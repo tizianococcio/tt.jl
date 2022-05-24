@@ -29,7 +29,7 @@ trackers_triplet_basic = Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}
 # (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, r1, o1, r2, o2, weight_tracker)
 trackers_triplet = Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Tuple{Matrix{Float64}, Matrix{Float64}}}
 # (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, u, v, weight_tracker)
-trackers_voltage = Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Matrix{Float64}}
+trackers_voltage = Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Tuple{Matrix{Float64}, Matrix{Float64}}}
 @with_kw struct SNNOut
     weights::Matrix{Float64}
     firing_times::Vector{Vector{Float64}}
@@ -132,10 +132,13 @@ end
 """
 inject input from new input layer into a pretrained network layer
 """
-function inject(new::tt.InputLayer, old::tt.SNNLayer)
-    old.spikes_dt = new.spikes_dt
-    old.transcriptions_dt = new.transcriptions_dt
+function inject(new::tt.InputLayer, old::tt.SNNLayer, weights::Matrix{Float64})
+    _old = SNNLayer(old)
+    _old.store = new.store
+    _old.weights = weights
+    _old.spikes_dt = new.spikes_dt
+    _old.transcriptions_dt = new.transcriptions_dt
     #new.net.simulation_time = old.net.simulation_time # copy simulation time over to be used in the classifier
-    old.net.simulation_time = new.net.simulation_time # update simulation time
-    return old
+    #_old.net.simulation_time = new.net.simulation_time # update simulation time
+    return _old
 end
