@@ -17,12 +17,6 @@ function is_neuron_in_assembly(neuron_id, popm)
     return false
 end
 
-function make_plot(volt, adaptTh, adaptI, title)
-    Plots.plot(volt, label="Membrane potential", linestyle=:solid, color=:black, linewidth=3, linealpha=0.4);
-    Plots.plot!(adaptTh, label="Adaptive threshold", linestyle=:dash, color=:black, linewidth=1);
-    Plots.plot!(adaptI, label="Adaptation current", linestyle=:dot, color=:black, linewidth=1);
-    return Plots.plot!(legend=:none, xlabel="Simulation time steps", title=title, tickfontsize=5, labelfontsize=5, titlefont=7);
-end
 
 
 conf = tt.load_conf()
@@ -37,7 +31,6 @@ store = LKD.StoreParams(folder = t_folder_train,
 LKD.makefolder(store.folder);
 LKD.cleanfolder(store.folder);
 
-# dummy transcriptions data to make the simulation run
 params = tt.LKD.InputParams(
     dialects=[1,2,3], 
     samples=20, 
