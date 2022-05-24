@@ -1,5 +1,3 @@
-# old versions of wrapper code
-
 using DataFrames
 using Random
 using SpikeTimit
