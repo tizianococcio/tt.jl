@@ -6,6 +6,7 @@ using SpikeTimit
 using LKD
 using YAML
 using MacroTools
+using CairoMakie
 
 function load_conf()
     return YAML.load_file(joinpath(@__DIR__, "../conf/paths.yml"))
@@ -13,7 +14,12 @@ end
 
 function rawdatadir()
     c = load_conf()
-    c["raw"]
+    joinpath(c["data"], "exp_raw")
+end
+
+function processeddatadir()
+    c = load_conf()
+    joinpath(c["data"], "exp_pro")
 end
 
 function datasetdir()
@@ -24,6 +30,22 @@ end
 function simsdir()
     c = load_conf()
     c["training_storage_path"]
+end
+
+function plotsdir()
+    c = load_conf()
+    c["plots"]
+end
+
+function saveplot(filename::String, f::Figure)
+    CairoMakie.save(joinpath(tt.plotsdir(), filename), f, pt_per_unit = 2)
+end
+
+function get_timit_train_dataframe()
+    _get_timit_dataframe(datasetdir())
+end
+function get_timit_test_dataframe()
+    _get_timit_dataframe(datasetdir(), which="test")
 end
 
 function get_timit_train_dataframe(path::String)
