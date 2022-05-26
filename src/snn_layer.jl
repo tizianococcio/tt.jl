@@ -91,7 +91,7 @@ function test(snn::SNNLayer)
     snn.store.save_states=true
     snn.store.save_network=false
     snn.store.save_weights=false
-    println(snn.store)
+    @info snn.store
     return _run(snn)
 end
 

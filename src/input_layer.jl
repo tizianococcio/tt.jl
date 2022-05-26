@@ -12,6 +12,14 @@
     stdp::Union{tt.TripletSTDP, tt.VoltageSTDP}
 end
 
+function _rebuildfullsimpath(id, LR::Union{tt.TripletSTDP, tt.VoltageSTDP})
+    if LR isa tt.TripletSTDP
+        joinpath(tt.simsdir(), "TRI_"*id)
+    else
+        joinpath(tt.simsdir(), "VOL_"*id)
+    end
+end
+
 function save(il::InputLayer)
     path = tt.rawdatadir()
     path = joinpath(path, "input_layers.jld2")
@@ -50,19 +58,25 @@ end
 pass an isntance of TripletSTDP to triplet_stdp to use it, otherwise default is voltage-stdp
 """
 function InputLayer(params::LKD.InputParams, weights_params::LKD.WeightParams, stdp = Union{tt.TripletSTDP, tt.VoltageSTDP})
-    filename_inputs = get_folder_name(params, weights_params);
+    id = get_folder_name(params, weights_params);
     if stdp isa tt.VoltageSTDP
-        folder_name = "VOL_$(filename_inputs)"
+        folder_name = "VOL_$(id)"
     else
-        folder_name = "TRI_$(filename_inputs)"
+        folder_name = "TRI_$(id)"
     end    
-    if input_layer_exists(folder_name)
+    if input_layer_exists(id)
+        @info "Input layer exists, loading it."
         path = tt.rawdatadir()
         path = joinpath(path, "input_layers.jld2")
         df = JLD2.load(path, "input_layers");
-        fdf = filter(:id => x->x == folder_name, df)
-        fdf[!,2][1]
+        fdf = filter(:id => x->x == id, df)
+        il = fdf[!,2][1]
+        il.id = id
+        il.store.folder = _rebuildfullsimpath(id, stdp)
+        il.stdp = stdp
+        il
     else
+        @info "Creating new input layer."
         path_dataset = tt.datasetdir()
         path_storage = tt.simsdir()
         df = tt.load_dataset(path_dataset, params);
@@ -90,7 +104,7 @@ function InputLayer(params::LKD.InputParams, weights_params::LKD.WeightParams, s
         store = LKD.StoreParams(folder = joinpath(path_storage, folder_name), save_states=true, save_network=true, save_weights=true);
 
         il = InputLayer(
-            folder_name,
+            id,
             W,
             popmembers,
             spikes_dt,
