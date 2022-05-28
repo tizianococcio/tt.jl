@@ -1,5 +1,6 @@
 @with_kw mutable struct InputLayer
     id::String
+    # sid::String
     weights::Matrix{Float64}
     popmembers::Matrix{Int64}
     spikes_dt#::SpikeTimit.FiringTimes,
@@ -10,6 +11,10 @@
     weights_params::LKD.WeightParams
     projections::LKD.ProjectionParams
     stdp::Union{tt.TripletSTDP, tt.VoltageSTDP}
+end
+
+function _getsid(id::String, stdp::Union{tt.TripletSTDP, tt.VoltageSTDP})
+    stdp isa tt.VoltageSTDP ? "VOL_$(id)" : "TRI_$(id)"
 end
 
 function _rebuildfullsimpath(id, LR::Union{tt.TripletSTDP, tt.VoltageSTDP})
@@ -74,6 +79,22 @@ function InputLayer(params::LKD.InputParams, weights_params::LKD.WeightParams, s
         il.id = id
         il.store.folder = _rebuildfullsimpath(id, stdp)
         il.stdp = stdp
+        # if !hasproperty(il, :sid) # fill in sid if missing in stored data
+        #     il = InputLayer(
+        #             il.id,
+        #             _getsid(il.id, il.stdp),
+        #             il.weights,
+        #             il.popmembers,
+        #             il.spikes_dt,
+        #             il.transcriptions,
+        #             il.transcriptions_dt,
+        #             il.net,
+        #             il.store,
+        #             il.weights_params,
+        #             il.projections,
+        #             il.stdp
+        #         )
+        # end        
         il
     else
         @info "Creating new input layer."
@@ -105,6 +126,7 @@ function InputLayer(params::LKD.InputParams, weights_params::LKD.WeightParams, s
 
         il = InputLayer(
             id,
+            # _getsid(id, stdp),
             W,
             popmembers,
             spikes_dt,
