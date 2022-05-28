@@ -307,10 +307,10 @@ function sim(weights::Matrix{Float64},
 				voltage_tracker[tt] = v[1]
 				adaptation_current_tracker[tt] = wadapt[1]
 				adaptive_threshold_tracker[tt] = vth[1]
-				do1[tt] = o1[1]
-				dr1[tt] = r1[1]
-				do2[tt] = o2[1]
-				dr2[tt] = r2[1]
+				# do1[tt] = o1[1]
+				# dr1[tt] = r1[1]
+				# do2[tt] = o2[1]
+				# dr2[tt] = r2[1]
 
 				if spiked[cc] #spike occurred
 					push!(times[cc], t);	# Times at which the neurons spiked
