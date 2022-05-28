@@ -448,13 +448,29 @@ function sim_m(weights::Matrix{Float64},
 	end #end loop over time
 	
 	if save_network
-		@time LKD.save_network_weights(weights, simulation_time/1000, folder)
-		@time LKD.save_network_spikes(times, folder)
-		@time LKD.save_network_rates(rates, folder)	# Save mean weights over inhibitory neurons
+		# @time LKD.save_network_weights(weights, simulation_time/1000, folder)
+		# @time LKD.save_network_spikes(times, folder)
+		# @time LKD.save_network_rates(rates, folder)	# Save mean weights over inhibitory neurons
 		
-		LKD.save_neuron_membrane(voltage_tracker, folder)
-		LKD.save_neuron_membrane(adaptation_current_tracker, folder; type="w_adapt")
-		LKD.save_neuron_membrane(adaptive_threshold_tracker, folder; type="adaptive_threshold")
+		# LKD.save_neuron_membrane(voltage_tracker, folder)
+		# LKD.save_neuron_membrane(adaptation_current_tracker, folder; type="w_adapt")
+		# LKD.save_neuron_membrane(adaptive_threshold_tracker, folder; type="adaptive_threshold")
+		# LKD.save_neuron_membrane(weight_tracker_pre, folder; type="weight_tracker_pre")
+		# LKD.save_neuron_membrane(weight_tracker_post, folder; type="weight_tracker_post")
+		jldopen(joinpath(folder, "output.jld2"), "w") do file
+			file["weights"] = weights
+			file["spikes"] = times
+			file["rates"] = rates
+			file["voltage_tracker"] = voltage_tracker
+			file["adaptation_current_tracker"] = adaptation_current_tracker
+			file["adaptive_threshold_tracker"] = adaptive_threshold_tracker
+			file["r1"] = dr1
+			file["r2"] = dr2
+			file["o1"] = do1
+			file["o2"] = do2
+			file["weight_tracker_pre"] = weight_tracker_pre
+			file["weight_tracker_post"] = weight_tracker_post
+		end
 		println("Done saving parameters")
 	end
 	return weights, times, rates, (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, dr1, do1, dr2, do2, (weight_tracker_pre, weight_tracker_post))

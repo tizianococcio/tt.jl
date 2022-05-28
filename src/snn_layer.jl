@@ -64,7 +64,7 @@ function train(snn::SNNLayer; overwrite=false)
             return _run(snn)
         else
             # load trained data and return it
-            println("Notice: a trained network already exists. Now loading it. To wipe it and run a new training pass overwrite=true.");
+            @info "A trained network already exists. Now loading it. To wipe it and run a new training pass overwrite=true."
             return load(snn.store.folder)
         end
     else
@@ -99,17 +99,43 @@ end
 loads network from disk and updates `in` with the stored weights
 """
 function load(in::tt.InputLayer)
-    W = LKD.read_network_weights(in.store.folder)
-    T = LKD.read_network_spikes(in.store.folder)
-    R = LKD.read_network_rates(in.store.folder)
     SS_words = LKD.read_network_states(joinpath(in.store.folder,"word_states"))
     SS_phones = LKD.read_network_states(joinpath(in.store.folder,"phone_states"))
-    voltage_tracker = LKD.read_neuron_membrane(in.store.folder)
-    adaptation_current_tracker = LKD.read_neuron_membrane(in.store.folder; type="w_adapt")
-    adaptive_threshold_tracker = LKD.read_neuron_membrane(in.store.folder; type="adaptive_threshold")
-    trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker
-    in.weights = W[end][2]
-    return (snn_layer=SNNLayer(in), out=SNNOut(W[end][2], T, R, trackers, SS_phones, SS_words), weights_trace=W)
+    f = jldopen(joinpath(in.store.folder, "output.jld2"), "r")
+    W = f["weights"]
+    T = f["spikes"]
+    R = f["rates"]
+    voltage_tracker = f["voltage_tracker"]
+    adaptation_current_tracker = f["adaptation_current_tracker"]
+    adaptive_threshold_tracker = f["adaptive_threshold_tracker"]
+    if haskey(f, "r1") && haskey(f, "weight_tracker_pre")
+        r1 = f["r1"]
+        r2 = f["r2"]
+        o1 = f["o1"]
+        o2 = f["o2"]
+        weight_tracker_pre = f["weight_tracker_pre"]
+        weight_tracker_post = f["weight_tracker_post"]
+        trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, r1, o1, r2, o2, (weight_tracker_pre, weight_tracker_post)
+    end
+    
+    if haskey(f, "u_trace") && haskey(f, "weight_tracker_pre")
+        u_trace = f["u_trace"]
+        v_trace = f["v_trace"]
+        weight_tracker_pre = f["weight_tracker_pre"]
+        weight_tracker_post = f["weight_tracker_post"]
+        trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, u_trace, v_trace, (weight_tracker_pre, weight_tracker_post)
+    end
+    close(f)
+
+    # W = LKD.read_network_weights(in.store.folder)
+    # T = LKD.read_network_spikes(in.store.folder)
+    # R = LKD.read_network_rates(in.store.folder)
+    # voltage_tracker = LKD.read_neuron_membrane(in.store.folder)
+    # adaptation_current_tracker = LKD.read_neuron_membrane(in.store.folder; type="w_adapt")
+    # adaptive_threshold_tracker = LKD.read_neuron_membrane(in.store.folder; type="adaptive_threshold")
+    # trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker
+    in.weights = W
+    return (snn_layer=SNNLayer(in), out=SNNOut(W, T, R, trackers, SS_phones, SS_words), weights_trace=W)
 end
 
 """
@@ -117,16 +143,31 @@ loads network from path, used to load an existing network in train()
 returns SNNOut
 """
 function load(folder::String)
-    W = LKD.read_network_weights(folder)
-    T = LKD.read_network_spikes(folder)
-    R = LKD.read_network_rates(folder)
+    datafile = joinpath(folder, "output.jld2")
     SS_words = LKD.read_network_states(joinpath(folder,"word_states"))
     SS_phones = LKD.read_network_states(joinpath(folder,"phone_states"))
-    voltage_tracker = LKD.read_neuron_membrane(folder)
-    adaptation_current_tracker = LKD.read_neuron_membrane(folder; type="w_adapt")
-    adaptive_threshold_tracker = LKD.read_neuron_membrane(folder; type="adaptive_threshold")
-    trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker
-    return SNNOut(W[end][2], T, R, trackers, SS_phones, SS_words)
+    if isfile(datafile)
+        f = jldopen(joinpath(in.store.folder, "output.jld2"), "r")
+        W = f["weights"]
+        T = f["spikes"]
+        R = f["rates"]
+        voltage_tracker = f["voltage_tracker"]
+        adaptation_current_tracker = f["adaptation_current_tracker"]
+        adaptive_threshold_tracker = f["adaptive_threshold_tracker"]
+        trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker
+        close(f)
+    else
+        # "legacy" mode
+        W = LKD.read_network_weights(folder)
+        T = LKD.read_network_spikes(folder)
+        R = LKD.read_network_rates(folder)
+        voltage_tracker = LKD.read_neuron_membrane(folder)
+        adaptation_current_tracker = LKD.read_neuron_membrane(folder; type="w_adapt")
+        adaptive_threshold_tracker = LKD.read_neuron_membrane(folder; type="adaptive_threshold")
+        trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker
+        W = W[end][2]
+    end
+    return SNNOut(W, T, R, trackers, SS_phones, SS_words)
 end
 
 """
