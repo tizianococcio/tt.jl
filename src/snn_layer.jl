@@ -87,6 +87,7 @@ runs the simulation on a previously trained network. Data for this network must 
 """
 function test(snn::SNNLayer)
     snn.net.learning = false
+    snn.store.folder = joinpath(snn.store.folder, string(now()))
     LKD.makefolder(snn.store.folder)
     snn.store.save_states=true
     snn.store.save_network=false
