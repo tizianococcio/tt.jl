@@ -28,3 +28,5 @@ end
 @with_kw struct VoltageSTDP 
     dummy = "This is a dummy struct to facilatate use of multiple dispatch. The actual params are in sim()."
 end
+
+STDP = Union{TripletSTDP, VoltageSTDP}
