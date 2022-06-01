@@ -87,10 +87,13 @@ runs the simulation on a previously trained network. Data for this network must 
 """
 function test(snn::SNNLayer)
     snn.net.learning = false
+    if !isdir(snn.store.folder)
+        mkdir(snn.store.folder)
+    end
     snn.store.folder = joinpath(snn.store.folder, string(now()))
     LKD.makefolder(snn.store.folder)
     snn.store.save_states=true
-    snn.store.save_network=false
+    snn.store.save_network=true
     snn.store.save_weights=false
     @info snn.store
     return _run(snn)
@@ -100,43 +103,48 @@ end
 loads network from disk and updates `in` with the stored weights
 """
 function load(in::tt.InputLayer)
+    datafile = joinpath(in.store.folder, "output.jld2")
     SS_words = LKD.read_network_states(joinpath(in.store.folder,"word_states"))
     SS_phones = LKD.read_network_states(joinpath(in.store.folder,"phone_states"))
-    f = jldopen(joinpath(in.store.folder, "output.jld2"), "r")
-    W = f["weights"]
-    T = f["spikes"]
-    R = f["rates"]
-    voltage_tracker = f["voltage_tracker"]
-    adaptation_current_tracker = f["adaptation_current_tracker"]
-    adaptive_threshold_tracker = f["adaptive_threshold_tracker"]
-    if haskey(f, "r1") && haskey(f, "weight_tracker_pre")
-        r1 = f["r1"]
-        r2 = f["r2"]
-        o1 = f["o1"]
-        o2 = f["o2"]
-        weight_tracker_pre = f["weight_tracker_pre"]
-        weight_tracker_post = f["weight_tracker_post"]
-        trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, r1, o1, r2, o2, (weight_tracker_pre, weight_tracker_post)
+    if isfile(datafile)
+        f = jldopen(datafile, "r")
+        W_last = f["weights"]
+        T = f["spikes"]
+        R = f["rates"]
+        voltage_tracker = f["voltage_tracker"]
+        adaptation_current_tracker = f["adaptation_current_tracker"]
+        adaptive_threshold_tracker = f["adaptive_threshold_tracker"]
+        if haskey(f, "r1") && haskey(f, "weight_tracker_pre")
+            r1 = f["r1"]
+            r2 = f["r2"]
+            o1 = f["o1"]
+            o2 = f["o2"]
+            weight_tracker_pre = f["weight_tracker_pre"]
+            weight_tracker_post = f["weight_tracker_post"]
+            trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, r1, o1, r2, o2, (weight_tracker_pre, weight_tracker_post)
+        end
+        
+        if haskey(f, "u_trace") && haskey(f, "weight_tracker_pre")
+            u_trace = f["u_trace"]
+            v_trace = f["v_trace"]
+            weight_tracker_pre = f["weight_tracker_pre"]
+            weight_tracker_post = f["weight_tracker_post"]
+            trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, u_trace, v_trace, (weight_tracker_pre, weight_tracker_post)
+        end
+        close(f)
+        w_trace = LKD.read_network_weights(in.store.folder)
+    else
+        w_trace = LKD.read_network_weights(in.store.folder)
+        T = LKD.read_network_spikes(in.store.folder)
+        R = LKD.read_network_rates(in.store.folder)
+        voltage_tracker = LKD.read_neuron_membrane(in.store.folder)
+        adaptation_current_tracker = LKD.read_neuron_membrane(in.store.folder; type="w_adapt")
+        adaptive_threshold_tracker = LKD.read_neuron_membrane(in.store.folder; type="adaptive_threshold")
+        trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker
+        W_last = w_trace[end][2]
     end
-    
-    if haskey(f, "u_trace") && haskey(f, "weight_tracker_pre")
-        u_trace = f["u_trace"]
-        v_trace = f["v_trace"]
-        weight_tracker_pre = f["weight_tracker_pre"]
-        weight_tracker_post = f["weight_tracker_post"]
-        trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, u_trace, v_trace, (weight_tracker_pre, weight_tracker_post)
-    end
-    close(f)
-
-    # W = LKD.read_network_weights(in.store.folder)
-    # T = LKD.read_network_spikes(in.store.folder)
-    # R = LKD.read_network_rates(in.store.folder)
-    # voltage_tracker = LKD.read_neuron_membrane(in.store.folder)
-    # adaptation_current_tracker = LKD.read_neuron_membrane(in.store.folder; type="w_adapt")
-    # adaptive_threshold_tracker = LKD.read_neuron_membrane(in.store.folder; type="adaptive_threshold")
-    # trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker
-    in.weights = W
-    return (snn_layer=SNNLayer(in), out=SNNOut(W, T, R, trackers, SS_phones, SS_words), weights_trace=W)
+    in.weights = W_last
+    return (snn_layer=SNNLayer(in), out=SNNOut(W_last, T, R, trackers, SS_phones, SS_words), weights_trace=w_trace)
 end
 
 """
@@ -174,13 +182,14 @@ end
 """
 inject input from new input layer into a pretrained network layer
 """
-function inject(new::tt.InputLayer, old::tt.SNNLayer, weights::Matrix{Float64})
+function inject(new::tt.InputLayer, old::tt.InputLayer, weights::Matrix{Float64})
     _old = SNNLayer(old)
     _old.store = new.store
     _old.weights = weights
     _old.spikes_dt = new.spikes_dt
     _old.transcriptions_dt = new.transcriptions_dt
     #new.net.simulation_time = old.net.simulation_time # copy simulation time over to be used in the classifier
-    #_old.net.simulation_time = new.net.simulation_time # update simulation time
+    _old.net.simulation_time = new.net.simulation_time # update simulation time
+    @info "Simulation time is $(_old.net.simulation_time)"
     return _old
 end
