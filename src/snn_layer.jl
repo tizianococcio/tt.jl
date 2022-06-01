@@ -55,13 +55,13 @@ end
 """
 runs the simulation and stores the network states. Overwrite previous data.
 """
-function train(snn::SNNLayer; overwrite=false)
+function train(snn::SNNLayer; overwrite=false, with_traces=false)
 
     if isdir(snn.store.folder)
         if overwrite
             LKD.makefolder(snn.store.folder);
             LKD.cleanfolder(snn.store.folder);    
-            return _run(snn)
+            return _run(snn, with_traces)
         else
             # load trained data and return it
             @info "A trained network already exists. Now loading it. To wipe it and run a new training pass overwrite=true."
@@ -70,15 +70,13 @@ function train(snn::SNNLayer; overwrite=false)
     else
         LKD.makefolder(snn.store.folder);
         LKD.cleanfolder(snn.store.folder);
-        return _run(snn)
+        return _run(snn, with_traces)
     end
 
 end
 
 function train_with_traces(snn::SNNLayer)
-    LKD.makefolder(snn.store.folder);
-    LKD.cleanfolder(snn.store.folder);
-    return _run(snn, true)
+    train(snn; overwrite=false, with_traces=true)
 end
 
 
