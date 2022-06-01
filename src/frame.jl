@@ -73,6 +73,11 @@ function _get_timit_dataframe(path::String; which="train")
     return input_df
 end
 
+function getdictionary()
+    dict_path = joinpath(datasetdir(), "DOC", "TIMITDIC.TXT")
+    SpikeTimit.create_dictionary(file=dict_path)
+end
+
 function load_dataset(path, params::LKD.InputParams)
     input_df = get_timit_train_dataframe(path);
     filtered_df = filter(
@@ -81,6 +86,10 @@ function load_dataset(path, params::LKD.InputParams)
         df -> filter(:gender => x->x ∈ params.gender, df)
     return filtered_df
 end
+
+# function filterby_speaker(df::DataFrame, speaker::String, words::String[])
+#     filter(:words => x-> any([word in x for word in words]), df) |> 
+# end
 
 function load_network(dataframe::DataFrame, params::LKD.InputParams, training_storage_path)
 
