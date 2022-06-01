@@ -10,19 +10,15 @@
     store::LKD.StoreParams
     weights_params::LKD.WeightParams
     projections::LKD.ProjectionParams
-    stdp::Union{tt.TripletSTDP, tt.VoltageSTDP}
+    stdp::STDP
 end
 
-function _getsid(id::String, stdp::Union{tt.TripletSTDP, tt.VoltageSTDP})
+function _getsid(id::String, stdp::STDP)
     stdp isa tt.VoltageSTDP ? "VOL_$(id)" : "TRI_$(id)"
 end
 
-function _rebuildfullsimpath(id, LR::Union{tt.TripletSTDP, tt.VoltageSTDP})
-    if LR isa tt.TripletSTDP
-        joinpath(tt.simsdir(), "TRI_"*id)
-    else
-        joinpath(tt.simsdir(), "VOL_"*id)
-    end
+function _rebuildfullsimpath(id)
+    joinpath(tt.simsdir(), id)
 end
 
 function save(il::InputLayer)
@@ -41,13 +37,38 @@ function save(il::InputLayer)
     jldopen(path, "w") do file
         file["input_layers"] = df
     end;
+
+    # save index
+    path_ind = joinpath(tt.rawdatadir(), "input_layers_indices.jld2")
+    if !isfile(path_ind)
+        df = DataFrame(:idx => String[])
+    else
+        df = JLD2.load(path_ind, "input_layers_indices");
+    end
+    push!(df, [il.id])
+    jldopen(path_ind, "w") do file
+        file["input_layers_indices"] = df
+    end;
+
+end
+
+function _loadinputlayer(id::String, stdp::STDP)
+    @assert input_layer_exists(id) "Input layer does not exist."
+    path = joinpath(tt.rawdatadir(), "input_layers.jld2")
+    df = JLD2.load(path, "input_layers");
+    fdf = filter(:id => x->x == id, df)
+    il = fdf[!,2][1]
+    il.id = id
+    il.store.folder = _rebuildfullsimpath(id)
+    il.stdp = stdp   
+    il 
 end
 
 function input_layer_exists(id::String)
     path = tt.rawdatadir()
-    path = joinpath(path, "input_layers.jld2")
+    path = joinpath(path, "input_layers_indices.jld2")
     if isfile(path)
-        df = JLD2.load(path, "input_layers");
+        df = JLD2.load(path, "input_layers_indices");
         if id in df[!,1]
             return true
         end
@@ -59,15 +80,14 @@ function get_folder_name(params::LKD.InputParams, weights_params::LKD.WeightPara
     "$(string(ContentHashes.hash(params)))_$(weights_params.Ne)_$(weights_params.Ni)";
 end
 
-function makeinputlayer(df::DataFrame, params::LKD.InputParams, weights_params::LKD.WeightParams, stdp = Union{tt.TripletSTDP, tt.VoltageSTDP})
-    id = get_folder_name(params, weights_params);
-    @info "Creating new input layer ($(id))."
+function get_folder_name(params::LKD.InputParams, weights_params::LKD.WeightParams, stdp::STDP)
+    "$(string(ContentHashes.hash([params, weights_params, stdp])))_$(weights_params.Ne)_$(weights_params.Ni)";
+end
 
-    if stdp isa tt.VoltageSTDP
-        folder_name = "VOL_$(id)"
-    else
-        folder_name = "TRI_$(id)"
-    end    
+function makeinputlayer(df::DataFrame, params::LKD.InputParams, weights_params::LKD.WeightParams, stdp::STDP)
+    id = get_folder_name(params, weights_params, stdp);
+    @info "Creating new input layer ($(id))."
+    folder_name = id
     path_storage = tt.simsdir()
     word_inputs = SpikeTimit.select_words(
         df, 
@@ -106,23 +126,13 @@ function makeinputlayer(df::DataFrame, params::LKD.InputParams, weights_params::
     il
 end
 
-function _loadinputlayer(id::String, stdp = Union{tt.TripletSTDP, tt.VoltageSTDP})
-    @assert input_layer_exists(id) "Input layer does not exist."
-    path = joinpath(tt.rawdatadir(), "input_layers.jld2")
-    df = JLD2.load(path, "input_layers");
-    fdf = filter(:id => x->x == id, df)
-    il = fdf[!,2][1]
-    il.id = id
-    il.store.folder = _rebuildfullsimpath(id, stdp)
-    il.stdp = stdp   
-    il 
-end
 
 
-function InputLayer(df::DataFrame, params::LKD.InputParams, weights_params::LKD.WeightParams, stdp = Union{tt.TripletSTDP, tt.VoltageSTDP})
-    id = get_folder_name(params, weights_params);
+
+function InputLayer(df::DataFrame, params::LKD.InputParams, weights_params::LKD.WeightParams, stdp::STDP)
+    id = get_folder_name(params, weights_params, stdp);
     if input_layer_exists(id)
-        @info "Input layer exists, loading it."
+        @info "Input layer $(id) exists, loading it."
         _loadinputlayer(id, stdp)
     else
         makeinputlayer(df, params, weights_params, stdp)
@@ -132,22 +142,17 @@ end
 """
 pass an isntance of TripletSTDP to triplet_stdp to use it, otherwise default is voltage-stdp
 """
-function InputLayer(params::LKD.InputParams, weights_params::LKD.WeightParams, stdp = Union{tt.TripletSTDP, tt.VoltageSTDP})
-    id = get_folder_name(params, weights_params);
-    if stdp isa tt.VoltageSTDP
-        folder_name = "VOL_$(id)"
-    else
-        folder_name = "TRI_$(id)"
-    end    
+function InputLayer(params::LKD.InputParams, weights_params::LKD.WeightParams, stdp::STDP)
+    id = get_folder_name(params, weights_params, stdp);  
     if input_layer_exists(id)
-        @info "Input layer exists, loading it."
+        @info "Input layer ($(id)) exists, loading it."
         path = tt.rawdatadir()
         path = joinpath(path, "input_layers.jld2")
         df = JLD2.load(path, "input_layers");
         fdf = filter(:id => x->x == id, df)
         il = fdf[!,2][1]
         il.id = id
-        il.store.folder = _rebuildfullsimpath(id, stdp)
+        il.store.folder = _rebuildfullsimpath(id)
         il.stdp = stdp   
         il
     else
