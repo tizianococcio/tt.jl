@@ -2,7 +2,7 @@ using Printf
 using ProgressBars
 using Distributions
 
-const global SIM_VER = "0.1.6"
+const global SIM_VER = "0.1.7"
 
 #this file is part of litwin-kumar_doiron_formation_2014
 #Copyright (C) 2014 Ashok Litwin-Kumar
@@ -18,7 +18,7 @@ function sim_m(weights::Matrix{Float64},
 			tri_stdp::TripletSTDP)
 
 	@unpack dt, simulation_time, learning =	net
-	@unpack folder, save_weights, save_states, save_network, save_timestep = store
+	@unpack folder, save_weights, save_states, save_network, save_timestep, save_traces_timestep = store
 	@unpack Ne, Ni = weights_params
 	@unpack neurons, ft = spikes
 	##labels and savepoints
@@ -200,17 +200,21 @@ function sim_m(weights::Matrix{Float64},
 	o1 = zeros(Ne)	
 	o2 = zeros(Ne)
 
+	trace_size = ceil(Int, simulation_time / save_traces_timestep)
+
 	# detectors trackers
-	do1 = 0.0*Vector{Float64}(undef,Nsteps)
-	do2 = 0.0*Vector{Float64}(undef,Nsteps)
-	dr1 = 0.0*Vector{Float64}(undef,Nsteps)
-	dr2 = 0.0*Vector{Float64}(undef,Nsteps)
+	do1 = 0.0*Vector{Float64}(undef,trace_size)
+	do2 = 0.0*Vector{Float64}(undef,trace_size)
+	dr1 = 0.0*Vector{Float64}(undef,trace_size)
+	dr2 = 0.0*Vector{Float64}(undef,trace_size)
 
 	# synapses from neuron 1 to all E neurons
 	pre_synapses_one = findall(weights[1,1:Ne] .!= 0.0)
 	post_synapses_one = findall(weights[1:Ne,1] .!= 0.0)
-	weight_tracker_pre = Matrix{Float64}(undef, Nsteps,length(pre_synapses_one))
-	weight_tracker_post = Matrix{Float64}(undef, Nsteps,length(post_synapses_one))
+	weight_tracker_pre = Matrix{Float64}(undef, trace_size, length(pre_synapses_one))
+	weight_tracker_post = Matrix{Float64}(undef, trace_size, length(post_synapses_one))
+
+	q = 1; # save timestep index
 
 	#begin main simulation loop
 	iterations = ProgressBar(1:Nsteps)
@@ -313,10 +317,12 @@ function sim_m(weights::Matrix{Float64},
 				voltage_tracker[tt] = v[1]
 				adaptation_current_tracker[tt] = wadapt[1]
 				adaptive_threshold_tracker[tt] = vth[1]
-				do1[tt] = o1[1]
-				dr1[tt] = r1[1]
-				do2[tt] = o2[1]
-				dr2[tt] = r2[1]
+				if mod(t, save_traces_timestep) == 0
+					do1[q] = o1[1]
+					dr1[q] = r1[1]
+					do2[q] = o2[1]
+					dr2[q] = r2[1]
+				end
 
 				if spiked[cc] #spike occurred
 					push!(times[cc], t);	# Times at which the neurons spiked
@@ -389,10 +395,17 @@ function sim_m(weights::Matrix{Float64},
 					o2[cc] -= dt/tri_stdp.tau_y * o2[cc]
 				end
 
+			end #end loop over cells
+			if mod(t, save_traces_timestep) == 0
+				weight_tracker_pre[q,:] = weights[1, pre_synapses_one]
+				weight_tracker_post[q,:] = weights[post_synapses_one, 1]
+				do1[q] = o1[1]
+				dr1[q] = r1[1]
+				do2[q] = o2[1]
+				dr2[q] = r2[1]		
+				q += 1		
 			end
-			weight_tracker_pre[tt,:] = weights[1, pre_synapses_one]
-			weight_tracker_post[tt,:] = weights[post_synapses_one, 1]
-		end #end loop over cells
+		end # end learning loop
 
 
 		# the previous forward inputs of the next time step are the forward inputs of the current time step
@@ -445,18 +458,10 @@ function sim_m(weights::Matrix{Float64},
 				next_phone_savepoint = phones_sp[phone_index, inphone_index]
 			end
 		end #saving states
+
 	end #end loop over time
 	
 	if save_network
-		# @time LKD.save_network_weights(weights, simulation_time/1000, folder)
-		# @time LKD.save_network_spikes(times, folder)
-		# @time LKD.save_network_rates(rates, folder)	# Save mean weights over inhibitory neurons
-		
-		# LKD.save_neuron_membrane(voltage_tracker, folder)
-		# LKD.save_neuron_membrane(adaptation_current_tracker, folder; type="w_adapt")
-		# LKD.save_neuron_membrane(adaptive_threshold_tracker, folder; type="adaptive_threshold")
-		# LKD.save_neuron_membrane(weight_tracker_pre, folder; type="weight_tracker_pre")
-		# LKD.save_neuron_membrane(weight_tracker_post, folder; type="weight_tracker_post")
 		jldopen(joinpath(folder, "output.jld2"), "w") do file
 			file["weights"] = weights
 			file["spikes"] = times
