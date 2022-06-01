@@ -397,7 +397,7 @@ function sim(weights::Matrix{Float64},
 		rates[2,tt] = mean(trace_istdp[Ne+1:end])/2/tauy*1000
 
 		if (tt == 1 || mod(tt, save_timestep) == 0) && save_weights
-			@time LKD.save_network_weights(weights, tt/1000, folder)
+			LKD.save_network_weights(weights, tt/1000, folder);
 		end
 
 		if save_states
@@ -408,7 +408,7 @@ function sim(weights::Matrix{Float64},
 				word_v[:,inword_index] .= v[1:Ne]
 				#Save to file if we are at the last measurement for the current phone
 				if inword_index == measurements_per_word
-					LKD.save_network_state(word_w, word_v, words[word_index], word_index, joinpath(folder,"word_states"))
+					LKD.save_network_state(word_w, word_v, words[word_index], word_index, joinpath(folder,"word_states"));
 					if word_index < length(words)
 						word_index += 1
 						inword_index = 1
@@ -427,7 +427,7 @@ function sim(weights::Matrix{Float64},
 				phone_v[:,inphone_index] .= v[1:Ne]
 				#Save to file if we are at the last measurement for the current phone
 				if inphone_index == measurements_per_phone
-					LKD.save_network_state(phone_w, phone_v, phones[phone_index], phone_index, joinpath(folder,"phone_states"))
+					LKD.save_network_state(phone_w, phone_v, phones[phone_index], phone_index, joinpath(folder,"phone_states"));
 					if phone_index < length(phones)
 						phone_index += 1
 						inphone_index = 1

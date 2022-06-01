@@ -87,10 +87,6 @@ function load_dataset(path, params::LKD.InputParams)
     return filtered_df
 end
 
-# function filterby_speaker(df::DataFrame, speaker::String, words::String[])
-#     filter(:words => x-> any([word in x for word in words]), df) |> 
-# end
-
 function load_network(dataframe::DataFrame, params::LKD.InputParams, training_storage_path)
 
     word_inputs = SpikeTimit.select_words(
