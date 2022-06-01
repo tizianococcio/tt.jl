@@ -33,3 +33,27 @@ function on_spikes(classLayer::ClassificationLayer, input::InputLayer)
     spike_feats, spike_labels = LKD.spikes_to_features(classLayer.firing_times, input.transcriptions.phones, interval)
     LKD.MultiLogReg(spike_feats[1:input.weights_params.Ne,:], spike_labels)
 end
+
+function predict(X, y, theta)
+    y_numeric = tt.LKD.labels_to_y(y)
+    n_classes = length(Set(y))
+    train_std = StatsBase.fit(StatsBase.ZScoreTransform, X, dims = 2)
+    StatsBase.transform!(train_std, X)
+    preds = MLJLinearModels.softmax(MLJLinearModels.apply_X(X', theta, n_classes))
+    y_hat = map(x -> argmax(x), eachrow(preds))
+    return (y=y_numeric, y_hat=y_hat, n_classes=n_classes)
+end
+
+function compute_confmat(y, y_hat)
+    n_classes = length(Set(y))
+    cm = zeros(n_classes, n_classes)
+    for (truth, prediction) in zip(y, y_hat)
+        cm[truth, prediction] += 1
+    end
+    return cm
+end
+
+function accuracy(y, y_hat)
+    @assert length(y) == length(y_hat)
+    mean(y .== y_hat)
+end
