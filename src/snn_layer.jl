@@ -97,6 +97,31 @@ function test(snn::SNNLayer)
     return _run(snn)
 end
 
+function _loadtrackers(f)
+    voltage_tracker = f["voltage_tracker"]
+    adaptation_current_tracker = f["adaptation_current_tracker"]
+    adaptive_threshold_tracker = f["adaptive_threshold_tracker"]
+    trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker
+    if haskey(f, "r1") && haskey(f, "weight_tracker_pre")
+        r1 = f["r1"]
+        r2 = f["r2"]
+        o1 = f["o1"]
+        o2 = f["o2"]
+        weight_tracker_pre = f["weight_tracker_pre"]
+        weight_tracker_post = f["weight_tracker_post"]
+        trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, r1, o1, r2, o2, (weight_tracker_pre, weight_tracker_post)
+    end
+    
+    if haskey(f, "u_trace") && haskey(f, "weight_tracker_pre")
+        u_trace = f["u_trace"]
+        v_trace = f["v_trace"]
+        weight_tracker_pre = f["weight_tracker_pre"]
+        weight_tracker_post = f["weight_tracker_post"]
+        trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, u_trace, v_trace, (weight_tracker_pre, weight_tracker_post)
+    end
+    trackers
+end
+
 """
 loads network from disk and updates `in` with the stored weights
 """
@@ -154,14 +179,15 @@ function load(folder::String)
     SS_words = LKD.read_network_states(joinpath(folder,"word_states"))
     SS_phones = LKD.read_network_states(joinpath(folder,"phone_states"))
     if isfile(datafile)
-        f = jldopen(joinpath(in.store.folder, "output.jld2"), "r")
+        f = jldopen(joinpath(folder, "output.jld2"), "r")
         W = f["weights"]
         T = f["spikes"]
         R = f["rates"]
-        voltage_tracker = f["voltage_tracker"]
-        adaptation_current_tracker = f["adaptation_current_tracker"]
-        adaptive_threshold_tracker = f["adaptive_threshold_tracker"]
-        trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker
+        trackers = _loadtrackers(f)
+        # voltage_tracker = f["voltage_tracker"]
+        # adaptation_current_tracker = f["adaptation_current_tracker"]
+        # adaptive_threshold_tracker = f["adaptive_threshold_tracker"]
+        # trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker
         close(f)
     else
         # "legacy" mode
