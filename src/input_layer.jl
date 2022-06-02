@@ -22,58 +22,74 @@ function _rebuildfullsimpath(id)
 end
 
 function save(il::InputLayer)
-    path = tt.rawdatadir()
-    path = joinpath(path, "input_layers.jld2")
-    new_data = Dict(
-        "id" => il.id,
-        "input_layer" => il
-    );
-    if !isfile(path)
-        df = DataFrame(new_data)
-    else
-        df = JLD2.load(path, "input_layers");
-        push!(df, new_data)
+    ils_folder = joinpath(tt.rawdatadir(), "input_layers");
+    if !isdir(ils_folder)
+        mkdir(ils_folder)
     end
-    jldopen(path, "w") do file
-        file["input_layers"] = df
-    end;
+    save_object(joinpath(ils_folder, "$(il.id).jld2"), il);
 
-    # save index
-    path_ind = joinpath(tt.rawdatadir(), "input_layers_indices.jld2")
-    if !isfile(path_ind)
-        df = DataFrame(:idx => String[])
-    else
-        df = JLD2.load(path_ind, "input_layers_indices");
-    end
-    push!(df, [il.id])
-    jldopen(path_ind, "w") do file
-        file["input_layers_indices"] = df
-    end;
+    # path = tt.rawdatadir()
+    # path = joinpath(path, "input_layers.jld2")
+    # new_data = Dict(
+    #     "id" => il.id,
+    #     "input_layer" => il
+    # );
+    # if !isfile(path)
+    #     df = DataFrame(new_data)
+    # else
+    #     df = JLD2.load(path, "input_layers");
+    #     push!(df, new_data)
+    # end
+    # jldopen(path, "w") do file
+    #     file["input_layers"] = df
+    # end;
+
+    # # save index
+    # path_ind = joinpath(tt.rawdatadir(), "input_layers_indices.jld2")
+    # if !isfile(path_ind)
+    #     df = DataFrame(:idx => String[])
+    # else
+    #     df = JLD2.load(path_ind, "input_layers_indices");
+    # end
+    # push!(df, [il.id])
+    # jldopen(path_ind, "w") do file
+    #     file["input_layers_indices"] = df
+    # end;
 
 end
 
 function _loadinputlayer(id::String, stdp::STDP)
     @assert input_layer_exists(id) "Input layer does not exist."
-    path = joinpath(tt.rawdatadir(), "input_layers.jld2")
-    df = JLD2.load(path, "input_layers");
-    fdf = filter(:id => x->x == id, df)
-    il = fdf[!,2][1]
+    ils_folder = joinpath(tt.rawdatadir(), "input_layers");
+    il = load_object(joinpath(ils_folder, "$(id).jld2"))
     il.id = id
     il.store.folder = _rebuildfullsimpath(id)
     il.stdp = stdp   
     il 
+
+    # path = joinpath(tt.rawdatadir(), "input_layers.jld2")
+    # df = JLD2.load(path, "input_layers");
+    # fdf = filter(:id => x->x == id, df)
+    # il = fdf[!,2][1]
+    # il.id = id
+    # il.store.folder = _rebuildfullsimpath(id)
+    # il.stdp = stdp   
+    # il 
 end
 
 function input_layer_exists(id::String)
-    path = tt.rawdatadir()
-    path = joinpath(path, "input_layers_indices.jld2")
-    if isfile(path)
-        df = JLD2.load(path, "input_layers_indices");
-        if id in df[!,1]
-            return true
-        end
-    end
-    return false
+    ils_folder = joinpath(tt.rawdatadir(), "input_layers");
+    isfile(joinpath(ils_folder, "$(id).jld2"))
+    
+    # path = tt.rawdatadir()
+    # path = joinpath(path, "input_layers_indices.jld2")
+    # if isfile(path)
+    #     df = JLD2.load(path, "input_layers_indices");
+    #     if id in df[!,1]
+    #         return true
+    #     end
+    # end
+    # return false
 end
 
 function get_folder_name(params::LKD.InputParams, weights_params::LKD.WeightParams)
@@ -146,15 +162,7 @@ function InputLayer(params::LKD.InputParams, weights_params::LKD.WeightParams, s
     id = get_folder_name(params, weights_params, stdp);  
     if input_layer_exists(id)
         @info "Input layer ($(id)) exists, loading it."
-        path = tt.rawdatadir()
-        path = joinpath(path, "input_layers.jld2")
-        df = JLD2.load(path, "input_layers");
-        fdf = filter(:id => x->x == id, df)
-        il = fdf[!,2][1]
-        il.id = id
-        il.store.folder = _rebuildfullsimpath(id)
-        il.stdp = stdp   
-        il
+        _loadinputlayer(id, stdp)
     else
         df = tt.load_dataset(tt.datasetdir(), params);
         makeinputlayer(df, params, weights_params, stdp)
