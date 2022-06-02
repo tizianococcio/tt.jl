@@ -173,20 +173,23 @@ function sim_m(weights::Matrix{Float64},
 	word_v = Matrix{Float64}(undef, Ne,measurements_per_word)
 	phone_v =Matrix{Float64}(undef, Ne,measurements_per_phone)
 
-	println("starting simulation [with traces]")
+	trace_size = ceil(Int, simulation_time / save_traces_timestep)
+
+	println("starting simulation [voltage-stdp, with traces]")
 
 	# trackers
 	voltage_neuron_1_tracker = 0.0*Vector{Float64}(undef,Nsteps)
 	adaptation_current_neuron_1_tracker = 0.0*Vector{Float64}(undef,Nsteps)
 	adaptive_threshold = 0.0*Vector{Float64}(undef,Nsteps)
-	u_trace = 0.0*Vector{Float64}(undef,Nsteps)
-	v_trace = 0.0*Vector{Float64}(undef,Nsteps)
+	u_trace = 0.0*Vector{Float64}(undef,trace_size)
+	v_trace = 0.0*Vector{Float64}(undef,trace_size)
 
 	# synapses from neuron 1 to all E neurons
 	pre_synapses_one = findall(weights[1,1:Ne] .!= 0.0)
 	post_synapses_one = findall(weights[1:Ne,1] .!= 0.0)
-	weight_tracker_pre = Matrix{Float64}(undef, Nsteps,length(pre_synapses_one))
-	weight_tracker_post = Matrix{Float64}(undef, Nsteps,length(post_synapses_one))
+	weight_tracker_pre = Matrix{Float64}(undef, trace_size, length(pre_synapses_one))
+	weight_tracker_post = Matrix{Float64}(undef, trace_size, length(post_synapses_one))
+	q = 1; # save timestep index
 	
     nzRowsAll = [findall(weights[nn,1:Ne].!=0) for nn = 1:Ncells] #Dick: for all neurons lists E postsynaptic neurons
     nzColsEE  = [findall(weights[1:Ne,mm].!=0) for mm = 1:Ne]     #Dick: for E neurons lists E presynaptic neurons
@@ -295,8 +298,10 @@ function sim_m(weights::Matrix{Float64},
 				voltage_neuron_1_tracker[tt] = v[1]
 				adaptation_current_neuron_1_tracker[tt] = wadapt[1]
 				adaptive_threshold[tt] = vth[1]
-				u_trace[tt] = u_vstdp[1]
-				v_trace[tt] = v_vstdp[1]
+				if mod(t, save_traces_timestep) == 0
+					u_trace[q] = u_vstdp[1]
+					v_trace[q] = v_vstdp[1]
+				end
 
 				if spiked[cc] #spike occurred
 					push!(times[cc], t);	# Times at which the neurons spiked
@@ -362,9 +367,12 @@ function sim_m(weights::Matrix{Float64},
 						end
 					end # end LTP
 				 end # conditions for LTP/D
+			end #end loop over cells
+			if mod(t, save_traces_timestep) == 0
+				weight_tracker_pre[q,:] = weights[1, pre_synapses_one]
+				weight_tracker_post[q,:] = weights[post_synapses_one, 1]
+				q += 1
 			end
-			weight_tracker_pre[tt,:] = weights[1, pre_synapses_one]
-			weight_tracker_post[tt,:] = weights[post_synapses_one, 1]
 		end #end loop over cells
 
 
