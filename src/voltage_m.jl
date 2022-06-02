@@ -15,7 +15,7 @@ function sim_m(weights::Matrix{Float64},
 			projections::LKD.ProjectionParams, stdp::VoltageSTDP)
 
 	@unpack dt, simulation_time, learning =	net
-	@unpack folder, save_weights, save_states, save_network, save_timestep = store
+	@unpack folder, save_weights, save_states, save_network, save_timestep, save_traces_timestep = store
 	@unpack Ne, Ni = weights_params
 	@unpack neurons, ft = spikes
 	##labels and savepoints

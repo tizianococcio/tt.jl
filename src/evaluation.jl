@@ -33,6 +33,34 @@ function makeconfmat(data::Matrix{Float64}, labels, title; xlabelrotate=pi/2)
 	fig
 end
 
+function weights_anime(trace_a::Vector{Tuple{Float64, Array}}, N, label, filename, post = true)
+    colors = ColorScheme(distinguishable_colors(10, transform=protanopic))
+    n = length(trace_a)
+    which = 2
+    if !post 
+        which = 1
+    end
+    t = map(x -> x[1], trace_a)
+    trace_a = map(x -> x[2], trace_a)
+    data_a = [filter(x->x!=0, trace_a[i][1:N,1:N][:]) for i in 1:n]
+    anim = Plots.Animation()
+    anim = @Plots.animate for i ∈ 1:n
+        Plots.histogram(
+            xlims=[1,12],
+            ylims=[0,1e4],
+            linewidth=0,
+            data_a[i], 
+            color=colors[2], 
+            alpha=0.9,
+            xlabel="Weight", 
+            ylabel="Count", 
+            title="$(t/100) s",
+            label=label
+        )
+    end
+    Plots.gif(anim, joinpath(tt.plotsdir(), "$(filename).gif"), fps=5)
+end
+
 function weights_anime(trace_a::Matrix{Float64}, trace_b::Matrix{Float64}, N, labels::Tuple{String, String}, filename, post = true)
     colors = ColorScheme(distinguishable_colors(10, transform=protanopic))
     n = length(trace_a)
@@ -131,6 +159,20 @@ function weights_anime(trace_a::Matrix{Float64}, trace_b::Matrix{Float64}, trace
         )
     end
     Plots.gif(anim, joinpath(tt.plotsdir(), "$(filename).gif"), fps=5)
+end
+
+function weights_hist(W, N, l = "")
+    dw = filter(x->x!=0, W[10][2][1:N,1:N][:])
+    Plots.histogram!(
+        linewidth=1,
+        dw, 
+        color=:green, 
+        #alpha=0.9,
+        xlabel="Weight", 
+        ylabel="Count", 
+        label=l,
+        bins=1.5:0.01:4.5
+    )
 end
 
 function evaluate(in_tri::tt.InputLayer, in_vol::tt.InputLayer, out_tri::tt.SNNOut, out_vol::tt.SNNOut)
