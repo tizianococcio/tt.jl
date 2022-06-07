@@ -52,6 +52,13 @@ function _run(snn::SNNLayer, traces::Bool=false)
     return SNNOut(W, T, R, trackers, ps, ws)
 end
 
+function _run_traces(snn::SNNLayer)
+    LKD.makefolder(snn.store.folder);
+    LKD.cleanfolder(snn.store.folder);
+    tt.sim_mall(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
+    snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp);
+end
+
 """
 runs the simulation and stores the network states. Overwrite previous data.
 """
@@ -182,6 +189,11 @@ function load(in::tt.InputLayer)
     end
     in.weights = W_last
     return (snn_layer=SNNLayer(in), out=SNNOut(W_last, T, R, trackers, SS_phones, SS_words), weights_trace=w_trace)
+end
+
+function get_weight_traces(in::InputLayer)
+    @assert isdir(in.store.folder) "Network not found."
+    LKD.read_network_weights(in.store.folder)
 end
 
 """

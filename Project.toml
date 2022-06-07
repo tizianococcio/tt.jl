@@ -4,6 +4,7 @@ authors = ["Tiziano Cocciò <tiziano.coccio@gmail.com>"]
 version = "0.1.0"
 
 [deps]
+AbstractPlotting = "537997a7-5e4e-5d89-9595-2241ea00577e"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
 ContentHashes = "ac509c8a-358f-4e3e-a88a-d19fed7814aa"
@@ -12,6 +13,8 @@ Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 DrWatson = "634d3b9d-ee7a-5ddf-bec9-22491ea816e1"
 GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
+GeometryBasics = "5c1252a2-5f33-56bf-86c9-59e7332b4326"
+GeometryTypes = "4d00f742-c7ba-57c2-abde-4428a4b178cb"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 LKD = "aabd4a8f-2854-44cd-a602-1faf469b581e"
 MLJLinearModels = "6ee0df7b-362f-4a72-a706-9e79364fb692"

@@ -219,6 +219,13 @@ function save_network(weight_matrix, population_matrix, storage_params, hard::Bo
     LKD.save_network(population_matrix, weight_matrix, storage_params.folder)
 end
 
+function save_weight_traces(folder, pre, post)
+    file = jldopen(joinpath(folder, "w_traces.jld2"), "w")
+    file["pre"] = pre
+    file["post"] = post
+    close(file)
+end
+
 """
 from DrWatson
 https://github.com/JuliaDynamics/DrWatson.jl/blob/599a9b2c04837e9d2162a022baf3394376af0cd9/src/naming.jl
