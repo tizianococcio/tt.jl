@@ -35,8 +35,8 @@ function plotsdir()
     c["plots"]
 end
 
-function saveplot(filename::String, f::Figure)
-    CairoMakie.save(joinpath(tt.plotsdir(), filename), f, pt_per_unit = 2)
+function saveplot(filename::String, f::Figure; kargs...)
+    CairoMakie.save(joinpath(tt.plotsdir(), filename), f; kargs...)
 end
 
 function get_timit_train_dataframe()
