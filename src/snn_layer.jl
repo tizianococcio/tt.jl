@@ -75,8 +75,8 @@ function train(snn::SNNLayer; overwrite=false, with_traces=false)
 
 end
 
-function train_with_traces(snn::SNNLayer)
-    train(snn; overwrite=false, with_traces=true)
+function train_with_traces(snn::SNNLayer; overwrite=false)
+    train(snn; overwrite=overwrite, with_traces=true)
 end
 
 
@@ -95,6 +95,20 @@ function test(snn::SNNLayer)
     snn.store.save_weights=false
     @info snn.store
     return _run(snn)
+end
+
+function test_with_traces(snn::SNNLayer)
+    snn.net.learning = false
+    if !isdir(snn.store.folder)
+        mkdir(snn.store.folder)
+    end
+    snn.store.folder = joinpath(snn.store.folder, string(now()))
+    LKD.makefolder(snn.store.folder)
+    snn.store.save_states=true
+    snn.store.save_network=true
+    snn.store.save_weights=false
+    @info snn.store
+    return _run(snn, true)
 end
 
 function _loadtrackers(f)
