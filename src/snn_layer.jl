@@ -192,7 +192,7 @@ function load(in::tt.InputLayer)
 end
 
 function get_weight_traces(in::InputLayer)
-    @assert isdir(in.store.folder) "Network not found."
+    @assert isdir(in.store.folder) "Network $(in.id) not found."
     LKD.read_network_weights(in.store.folder)
 end
 
