@@ -22,40 +22,32 @@ function _rebuildfullsimpath(id)
 end
 
 function save(il::InputLayer)
-    ils_folder = joinpath(tt.rawdatadir(), "input_layers");
-    if !isdir(ils_folder)
-        mkdir(ils_folder)
+    if !input_layer_exists(il.id)
+        ils_folder = joinpath(tt.rawdatadir(), "input_layers");
+        if !isdir(ils_folder)
+            mkdir(ils_folder)
+        end
+        save_object(joinpath(ils_folder, "$(il.id).jld2"), il);
+    else
+        @info "Input layer $(il.id) already exists, cannot save it. Returning it."
+        il
     end
-    save_object(joinpath(ils_folder, "$(il.id).jld2"), il);
+end
 
-    # path = tt.rawdatadir()
-    # path = joinpath(path, "input_layers.jld2")
-    # new_data = Dict(
-    #     "id" => il.id,
-    #     "input_layer" => il
-    # );
-    # if !isfile(path)
-    #     df = DataFrame(new_data)
-    # else
-    #     df = JLD2.load(path, "input_layers");
-    #     push!(df, new_data)
-    # end
-    # jldopen(path, "w") do file
-    #     file["input_layers"] = df
-    # end;
+function delete(il::InputLayer)
+    if input_layer_exists(il.id)
+        ils_folder = joinpath(tt.rawdatadir(), "input_layers");
+        rm(joinpath(ils_folder, "$(il.id).jld2"))
+    end
+end
 
-    # # save index
-    # path_ind = joinpath(tt.rawdatadir(), "input_layers_indices.jld2")
-    # if !isfile(path_ind)
-    #     df = DataFrame(:idx => String[])
-    # else
-    #     df = JLD2.load(path_ind, "input_layers_indices");
-    # end
-    # push!(df, [il.id])
-    # jldopen(path_ind, "w") do file
-    #     file["input_layers_indices"] = df
-    # end;
-
+function _loadinputlayer(id::String)
+    @assert input_layer_exists(id) "Input layer does not exist."
+    ils_folder = joinpath(tt.rawdatadir(), "input_layers");
+    il = load_object(joinpath(ils_folder, "$(id).jld2"))
+    il.id = id
+    il.store.folder = _rebuildfullsimpath(id)
+    il 
 end
 
 function _loadinputlayer(id::String, stdp::STDP)
@@ -66,30 +58,10 @@ function _loadinputlayer(id::String, stdp::STDP)
     il.store.folder = _rebuildfullsimpath(id)
     il.stdp = stdp   
     il 
-
-    # path = joinpath(tt.rawdatadir(), "input_layers.jld2")
-    # df = JLD2.load(path, "input_layers");
-    # fdf = filter(:id => x->x == id, df)
-    # il = fdf[!,2][1]
-    # il.id = id
-    # il.store.folder = _rebuildfullsimpath(id)
-    # il.stdp = stdp   
-    # il 
 end
 
 function input_layer_exists(id::String)
-    ils_folder = joinpath(tt.rawdatadir(), "input_layers");
-    isfile(joinpath(ils_folder, "$(id).jld2"))
-    
-    # path = tt.rawdatadir()
-    # path = joinpath(path, "input_layers_indices.jld2")
-    # if isfile(path)
-    #     df = JLD2.load(path, "input_layers_indices");
-    #     if id in df[!,1]
-    #         return true
-    #     end
-    # end
-    # return false
+    isfile(joinpath(tt.rawdatadir(), "input_layers", "$(id).jld2"))
 end
 
 function get_folder_name(params::LKD.InputParams, weights_params::LKD.WeightParams)
@@ -168,4 +140,35 @@ function InputLayer(params::LKD.InputParams, weights_params::LKD.WeightParams, s
         makeinputlayer(df, params, weights_params, stdp)
     end
 
+end
+
+
+function makeinput(in_params::tt.LKD.InputParams, weight_params::tt.LKD.WeightParams, stdp::STDP=tt.TripletSTDP())
+
+    # start from triplet
+    tri = tt.InputLayer(in_params, weight_params, stdp);
+
+    # copy into voltage
+    vol = deepcopy(tri)
+    vol.stdp = tt.VoltageSTDP()
+    vol.id =  tt.get_folder_name(in_params, weight_params, tt.VoltageSTDP())
+    vol.store.folder = tt._rebuildfullsimpath(vol.id)
+    tt.save(vol)
+    
+    tri, vol
+end
+
+function newlike(il::InputLayer, params::tt.LKD.InputParams; wp=nothing, new_stdp=nothing)
+        new = deepcopy(il)
+        if !isnothing(new_stdp)
+            new.stdp = new_stdp
+        end
+        if !isnothing(wp)
+            new.weight_params = wp
+        end
+        new.id =  tt.get_folder_name(params, new.weights_params, new.stdp)
+        new.store.folder = tt._rebuildfullsimpath(new.id)
+        @info "New layer id $(new.id)"
+        tt.save(new)
+        new
 end
