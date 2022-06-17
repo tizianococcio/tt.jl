@@ -59,6 +59,58 @@ labels = word_inputs[3] # labels (1 array per word)
 # "that" => 612
 # "she" => 572
 
+weights_params = tt.LKD.WeightParams()
+path_storage = tt.simsdir()
+path_dataset = tt.datasetdir()
+params = tt.LKD.InputParams(
+    dialects=[1], 
+    samples=1, 
+    gender=['f'], 
+    words=["music"], 
+    repetitions=3, 
+    shift_input=2, 
+    encoding="cochlea70"
+)
+
+inl = tt.InputLayer(params, weights_params, tt.TripletSTDP())
+inl.transcriptions_dt.words.intervals
+a
+
+function expE_music()
+    weights_params = tt.LKD.WeightParams()
+    path_storage = tt.simsdir()
+    path_dataset = tt.datasetdir()
+    params = tt.LKD.InputParams(
+        dialects=[1], 
+        samples=1, 
+        gender=['f'], 
+        words=["music"], 
+        repetitions=3, 
+        shift_input=2, 
+        encoding="cochlea70"
+    )
+    df = tt.load_dataset(path_dataset, params)
+    word_inputs = tt.SpikeTimit.select_words(
+        df, 
+        samples=params.samples, 
+        params.words, 
+        encoding=params.encoding);
+    duration, spikes, labels = word_inputs
+    input_tri = tt.makeinputlayer(df, params, weights_params, tt.TripletSTDP())
+    input_vol = tt.makeinputlayer(df, params, weights_params, tt.VoltageSTDP())
+    snnt = tt.SNNLayer(input_tri)
+    outt = tt.train_with_traces(snnt, overwrite=true);
+    snnv = tt.SNNLayer(input_vol)
+    outv = tt.train_with_traces(snnv, overwrite=true);
+
+    fid = Dict()
+    fid["sim_triplet"] = outt
+    fid["sim_voltage"] = outv
+    fid["in_spikes"] = (spikes=spikes, labels=labels)
+    folder = joinpath(tt.rawdatadir(), "expE_music_cochlea70.jld2")
+    save(folder, fid)
+end
+expE_music()
 
 function exp_E(encoding::String)
     weights_params = tt.LKD.WeightParams()
