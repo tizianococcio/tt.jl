@@ -226,6 +226,27 @@ function save_weight_traces(folder, pre, post)
     close(file)
 end
 
+function load_weight_traces(folder)
+    file = jldopen(joinpath(folder, "w_traces.jld2"), "r")
+    pre = file["pre"]
+    post = file["post"]
+    close(file)
+    pre, post
+end
+
+function save_weight_traces(folder, container::Vector{Matrix{Float64}})
+    file = jldopen(joinpath(folder, "w_traces_full.jld2"), "w")
+    file["container"] = container
+    close(file)
+end
+
+function load_fullmat_weight_traces(folder)
+    file = jldopen(joinpath(folder, "w_traces_full.jld2"), "r")
+    c = file["container"]
+    close(file)
+    c
+end
+
 """
 from DrWatson
 https://github.com/JuliaDynamics/DrWatson.jl/blob/599a9b2c04837e9d2162a022baf3394376af0cd9/src/naming.jl
@@ -244,4 +265,23 @@ macro strdict(vars...)
 		end
 	end
 	return expr
+end
+
+function extrdict(dict)
+    t_ins = dict["t_ins"]
+    v_ins = dict["v_ins"]
+    t_outs = dict["t_outs"]
+    v_outs = dict["v_outs"]
+    t_ins, v_ins, t_outs, v_outs
+end
+
+function savedata(t_ins, v_ins, t_outs, v_outs, name)
+    data = @tt.strdict(t_ins, v_ins, t_outs, v_outs)
+    e = tt.Experiment(name, "")
+    tt.save(data, e)
+end
+
+function loaddata(name)
+    e = tt.Experiment(name, "")
+    extrdict(e.df[1,:].data)
 end
