@@ -39,10 +39,16 @@ trackers_voltage = Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}, Vect
     word_states::Vector{Any}
 end
 
-function _run(snn::SNNLayer, traces::Bool=false)
+function _run(snn::SNNLayer, traces::Bool=false, eSTDP=true)
+    @assert (!eSTDP && traces) || (eSTDP&&traces) || (!traces && eSTDP) "Excitatory STDP can be turned off only if running with traces."
     if traces
-        W, T, R, trackers = tt.sim_m(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
+        if eSTDP
+            W, T, R, trackers = tt.sim_m(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
+                snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp);
+        else
+            W, T, R, trackers = tt.sim_m_eSTDPoff(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
             snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp);
+        end
     else
         W, T, R, trackers = tt.sim(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
             snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp);
@@ -52,23 +58,37 @@ function _run(snn::SNNLayer, traces::Bool=false)
     return SNNOut(W, T, R, trackers, ps, ws)
 end
 
-function _run_traces(snn::SNNLayer)
+function _run_traces(snn::SNNLayer, full_matrix=false)
     LKD.makefolder(snn.store.folder);
     LKD.cleanfolder(snn.store.folder);
-    tt.sim_mall(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
+    if !full_matrix
+        # only synapses
+        tt.sim_mall(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
+        snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp);
+    else
+        #full matrices
+        tt.sim_mall_full(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
+        snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp);
+    end
+end
+
+function _run_eSTDPoff(snn::SNNLayer)
+    LKD.makefolder(snn.store.folder);
+    LKD.cleanfolder(snn.store.folder);
+    tt.sim_m_eSTDPoff(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
     snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp);
 end
 
 """
 runs the simulation and stores the network states. Overwrite previous data.
 """
-function train(snn::SNNLayer; overwrite=false, with_traces=false)
+function train(snn::SNNLayer; overwrite=false, with_traces=false, eSTDP=true)
 
     if isdir(snn.store.folder)
         if overwrite
             LKD.makefolder(snn.store.folder);
             LKD.cleanfolder(snn.store.folder);    
-            return _run(snn, with_traces)
+            return _run(snn, with_traces, eSTDP)
         else
             # load trained data and return it
             @info "A trained network already exists. Now loading it. To wipe it and run a new training pass overwrite=true."
@@ -77,31 +97,40 @@ function train(snn::SNNLayer; overwrite=false, with_traces=false)
     else
         LKD.makefolder(snn.store.folder);
         LKD.cleanfolder(snn.store.folder);
-        return _run(snn, with_traces)
+        return _run(snn, with_traces, eSTDP)
     end
 
 end
 
-function train_with_traces(snn::SNNLayer; overwrite=false)
-    train(snn; overwrite=overwrite, with_traces=true)
+function train_with_traces(snn::SNNLayer; overwrite=false, eSTDP=true)
+    train(snn; overwrite=overwrite, with_traces=true, eSTDP=eSTDP)
 end
 
 
 """
 runs the simulation on a previously trained network. Data for this network must exist on disk.
 """
-function test(snn::SNNLayer)
+function test(snn::SNNLayer; trial=1)
     snn.net.learning = false
     if !isdir(snn.store.folder)
         mkdir(snn.store.folder)
     end
-    snn.store.folder = joinpath(snn.store.folder, string(now()))
-    LKD.makefolder(snn.store.folder)
-    snn.store.save_states=true
-    snn.store.save_network=true
-    snn.store.save_weights=false
-    @info snn.store
-    return _run(snn)
+    original_folder = snn.store.folder
+    snn.store.folder = joinpath(snn.store.folder, "trials", string(trial))
+    if !ispath(snn.store.folder)
+        tt.LKD.makefolder(snn.store.folder)
+        tt.LKD.cleanfolder(snn.store.folder)
+        snn.store.save_states=true
+        snn.store.save_network=true
+        snn.store.save_weights=false
+        @info snn.store
+        res = _run(snn)
+    else
+        @info "trial already exists, now loading it."
+        res = load(snn.store.folder)
+    end
+    snn.store.folder = original_folder
+    return res
 end
 
 function test_with_traces(snn::SNNLayer)
@@ -191,9 +220,14 @@ function load(in::tt.InputLayer)
     return (snn_layer=SNNLayer(in), out=SNNOut(W_last, T, R, trackers, SS_phones, SS_words), weights_trace=w_trace)
 end
 
-function get_weight_traces(in::InputLayer)
+function get_weight_traces(in::InputLayer, just_matrices=false)
     @assert isdir(in.store.folder) "Network $(in.id) not found."
-    LKD.read_network_weights(in.store.folder)
+    w = LKD.read_network_weights(in.store.folder)
+    if just_matrices
+        map(x->x[2], w)
+    else
+        w
+    end
 end
 
 """
@@ -227,6 +261,14 @@ function load(folder::String)
         W = W[end][2]
     end
     return SNNOut(W, T, R, trackers, SS_phones, SS_words)
+end
+
+function delete_sim(il::tt.InputLayer)
+    tt.delete(il)
+    folder = joinpath(tt.simsdir(), il.id);
+    if ispath(folder)
+        rm(folder, recursive=true)
+    end
 end
 
 """
