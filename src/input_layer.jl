@@ -1,6 +1,5 @@
 @with_kw mutable struct InputLayer
     id::String
-    # sid::String
     weights::Matrix{Float64}
     popmembers::Matrix{Int64}
     spikes_dt#::SpikeTimit.FiringTimes,
@@ -72,7 +71,7 @@ function get_folder_name(params::LKD.InputParams, weights_params::LKD.WeightPara
     "$(string(ContentHashes.hash([params, weights_params, stdp])))_$(weights_params.Ne)_$(weights_params.Ni)";
 end
 
-function makeinputlayer(df::DataFrame, params::LKD.InputParams, weights_params::LKD.WeightParams, stdp::STDP)
+function makeinputlayer(df::DataFrame, params::LKD.InputParams, weights_params::LKD.WeightParams, stdp::STDP; save = true)
     id = get_folder_name(params, weights_params, stdp);
     @info "Creating new input layer ($(id))."
     folder_name = id
@@ -110,7 +109,9 @@ function makeinputlayer(df::DataFrame, params::LKD.InputParams, weights_params::
         projections,
         stdp
     )
-    tt.save(il)
+    if save
+        tt.save(il)
+    end
     il
 end
 
@@ -130,14 +131,14 @@ end
 """
 pass an isntance of TripletSTDP to triplet_stdp to use it, otherwise default is voltage-stdp
 """
-function InputLayer(params::LKD.InputParams, weights_params::LKD.WeightParams, stdp::STDP)
+function InputLayer(params::LKD.InputParams, weights_params::LKD.WeightParams, stdp::STDP; save = true)
     id = get_folder_name(params, weights_params, stdp);  
     if input_layer_exists(id)
         @info "Input layer ($(id)) exists, loading it."
         _loadinputlayer(id, stdp)
     else
         df = tt.load_dataset(tt.datasetdir(), params);
-        makeinputlayer(df, params, weights_params, stdp)
+        makeinputlayer(df, params, weights_params, stdp; save=save)
     end
 
 end
@@ -171,4 +172,15 @@ function newlike(il::InputLayer, params::tt.LKD.InputParams; wp=nothing, new_std
         @info "New layer id $(new.id)"
         tt.save(new)
         new
+end
+
+"""
+makes simulation longer of n seconds
+returns tuple with (old sim time, new sim time)
+"""
+function extend_simtime(il::InputLayer, n::Int)
+    old = il.net.simulation_time
+    extra_time = n*1000 #ms
+    il.net.simulation_time += extra_time
+    old, il.net.simulation_time
 end
