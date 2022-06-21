@@ -1,3 +1,4 @@
+using Random
 @with_kw mutable struct ClassificationLayer
     id::String
     firing_times::Vector{Vector{Float64}}
@@ -108,6 +109,12 @@ end
 function accuracy(y, y_hat)
     @assert length(y) == length(y_hat)
     mean(y .== y_hat)
+end
+
+function kappa_score(y, y_hat)
+    raw_acc = accuracy(y, y_hat)
+    rand_acc = accuracy(y, shuffle(y_hat))
+    (raw_acc - rand_acc) / (1 - rand_acc)
 end
 
 function featuresfromspikes(i::tt.InputLayer, o::tt.SNNOut, only_exc=true)

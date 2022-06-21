@@ -137,26 +137,34 @@ end
 """
 runs the simulation on a previously trained network. Data for this network must exist on disk.
 """
-function test(snn::SNNLayer; trial=1)
+function test(snn::SNNLayer; trial=0)
     snn.net.learning = false
-    if !isdir(snn.store.folder)
-        mkdir(snn.store.folder)
-    end
-    original_folder = snn.store.folder
-    snn.store.folder = joinpath(snn.store.folder, "trials", string(trial))
-    if !ispath(snn.store.folder)
-        tt.LKD.makefolder(snn.store.folder)
-        tt.LKD.cleanfolder(snn.store.folder)
-        snn.store.save_states=true
-        snn.store.save_network=true
-        snn.store.save_weights=false
-        @info snn.store
+    if trial == 0
+        snn.store.save_weights = false
+        # overwrites state in the current folder but keep weights and previous trials
+        tt.preparefolder(snn.store.folder)
         res = _run(snn)
     else
-        @info "trial already exists, now loading it."
-        res = load(snn.store.folder)
+        # additional trials: creates subfolders
+        if !isdir(snn.store.folder)
+            mkdir(snn.store.folder)
+        end
+        original_folder = snn.store.folder
+        snn.store.folder = joinpath(snn.store.folder, "trials", string(trial))
+        if !ispath(snn.store.folder)
+            tt.LKD.makefolder(snn.store.folder)
+            tt.LKD.cleanfolder(snn.store.folder)
+            snn.store.save_states=true
+            snn.store.save_network=true
+            snn.store.save_weights=false
+            @info snn.store
+            res = _run(snn)
+        else
+            @info "trial already exists, now loading it."
+            res = load(snn.store.folder)
+        end
+        snn.store.folder = original_folder
     end
-    snn.store.folder = original_folder
     return res
 end
 
