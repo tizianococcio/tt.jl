@@ -29,3 +29,18 @@ function savesimid(expname, id::String)
         save(p, Dict(expname => [id]))
     end
 end
+
+### io
+function preparefolder(folder::String, 
+    keep::Vector{String}=["trials", "weights", "network.h5", "output.jld2"])
+    for p in readdir(folder)
+        if p in keep
+            continue
+        end
+        rm(joinpath(folder, p), recursive=true)
+    end
+    mkdir(joinpath(folder, "mean_weights"))
+    mkdir(joinpath(folder, "word_states"))
+    mkdir(joinpath(folder, "phone_states"))
+    mkdir(joinpath(folder, "spikes"))    
+end
