@@ -79,6 +79,33 @@ function _run_eSTDPoff(snn::SNNLayer)
     snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp);
 end
 
+function _run_triplet_dins(snn::SNNLayer)
+    snn.store.folder *= "_dins"
+    LKD.makefolder(snn.store.folder);
+    LKD.cleanfolder(snn.store.folder);
+    tt.sim_m_dins(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
+    snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp);
+end
+
+function _run_triplet_barebones(snn::SNNLayer)
+    snn.store.folder *= "_bb"
+    LKD.makefolder(snn.store.folder);
+    LKD.cleanfolder(snn.store.folder);
+    tt.sim_bb(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
+    snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp);
+end
+
+function _run_triplet_deterministic(snn::SNNLayer, dua=true)
+    snn.store.folder *= "_det"
+    LKD.makefolder(snn.store.folder);
+    LKD.cleanfolder(snn.store.folder);
+    snn.store.save_states = false
+    snn.store.save_network = false
+    snn.store.save_weights = false
+    tt.sim_det(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
+    snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp, dua);
+end
+
 """
 runs the simulation and stores the network states. Overwrite previous data.
 """
