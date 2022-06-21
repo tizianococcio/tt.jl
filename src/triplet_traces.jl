@@ -2,7 +2,6 @@ using Printf
 using ProgressBars
 using Distributions
 
-const global SIM_VER = "0.1.8"
 
 #this file is part of litwin-kumar_doiron_formation_2014
 #Copyright (C) 2014 Ashok Litwin-Kumar
@@ -21,6 +20,9 @@ function sim_m(weights::Matrix{Float64},
 	@unpack folder, save_weights, save_states, save_network, save_timestep, save_traces_timestep = store
 	@unpack Ne, Ni = weights_params
 	@unpack neurons, ft = spikes
+
+	SIM_VER = "0.1.9"
+
 
 	# triplet params (local copy has dramatic speed up)
 	A⁺₂::Float32 = copy(tri_stdp.A_plus_2)
@@ -332,51 +334,56 @@ function sim_m(weights::Matrix{Float64},
 		end
 			
 		if learning
-			# run on pre-synaptic cells.
-			for cc = 1:Ncells
-				# istdp (formula 6)
-				if spiked[cc] && (t > stdpdelay)
-					if cc <= Ne                 # excitatory neuron fired, potentiate i inputs
-						for dd in nzColsIE[cc]  # loop over postsynaptic nonzero synapses
-							weights[dd,cc] += eta*trace_istdp[dd]
-						(weights[dd,cc] > jeimax) && (weights[dd,cc] = jeimax);
-						end
-					else       # presynaptic inhibitory neuron fired, modify outputs to e neurons
-						for dd in nzRowsAll[cc] # only loop over nonzero synapses
-							weights[cc,dd] += eta*(trace_istdp[dd] - alpha)
-							(weights[cc,dd] > jeimax) && (weights[cc,dd] = jeimax);
-							(weights[cc,dd] < jeimin) && (weights[cc,dd] = jeimin);
-						end
-					end
-				end # end istdp
-
-				# triplet version 3
-				if (t > stdpdelay) && (cc <= Ne)
+			if t > stdpdelay
+				for cc = 1:Ncells
 					if spiked[cc]
-						r1[cc] += 1
-						o1[cc] += 1
-						# presynaptic neuron fired
-						for dd in nzRowsEE[cc]  # loop over postsynaptic
-							# LTD
-							weights[cc,dd] -= o1[dd] * (A⁻₂ + A⁻₃ * r2[cc]);
-							(weights[cc,dd] < jeemin) && (weights[cc,dd] = jeemin);
+						# istdp (formula 6)
+						if cc <= Ne                 # excitatory neuron fired, potentiate i inputs
+							for dd in nzColsIE[cc]  # loop over postsynaptic nonzero synapses
+								weights[dd,cc] += eta*trace_istdp[dd]
+							(weights[dd,cc] > jeimax) && (weights[dd,cc] = jeimax);
+							end
+						else       # presynaptic inhibitory neuron fired, modify outputs to e neurons
+							for dd in nzRowsAll[cc] # only loop over nonzero synapses
+								weights[cc,dd] += eta*(trace_istdp[dd] - alpha)
+								(weights[cc,dd] > jeimax) && (weights[cc,dd] = jeimax);
+								(weights[cc,dd] < jeimin) && (weights[cc,dd] = jeimin);
+							end
 						end
-						# postsynaptic neuron fired
-						for dd in nzColsEE[cc] # loop over presynaptic
-							# LTP
-							weights[dd,cc] += r1[dd] * (A⁺₂ + A⁺₃ * o2[cc]);
-							(weights[dd,cc] > jeemax) && (weights[dd,cc] = jeemax);
-						end
-						r2[cc] += 1
-						o2[cc] += 1
-					end
-					r1[cc] -= dt/τ⁺ * r1[cc]
-					r2[cc] -= dt/τˣ * r2[cc]
-					o1[cc] -= dt/τ⁻ * o1[cc]
-					o2[cc] -= dt/τʸ * o2[cc]
-				end
+						# end istdp
 
-			end #end loop over cells
+						# triplet
+						if cc <= Ne   
+							r1[cc] += 1
+							o1[cc] += 1
+							# presynaptic neuron fired
+							for dd in nzRowsEE[cc]  # loop over postsynaptic
+								# LTD
+								weights[cc,dd] -= o1[dd] * (A⁻₂ + A⁻₃ * r2[cc]);
+								(weights[cc,dd] < jeemin) && (weights[cc,dd] = jeemin);
+							end
+							# postsynaptic neuron fired
+							for dd in nzColsEE[cc] # loop over presynaptic
+								# LTP
+								weights[dd,cc] += r1[dd] * (A⁺₂ + A⁺₃ * o2[cc]);
+								(weights[dd,cc] > jeemax) && (weights[dd,cc] = jeemax);
+							end
+							r2[cc] += 1
+							o2[cc] += 1
+						end
+						# end triplet
+					else
+						# triplet stdp detectors decay
+						if cc <= Ne
+                            r1[cc] -= dt/τ⁺ * r1[cc]
+                            r2[cc] -= dt/τˣ * r2[cc]
+                            o1[cc] -= dt/τ⁻ * o1[cc]
+                            o2[cc] -= dt/τʸ * o2[cc]
+                        end
+						# end triplet stdp detectors
+					end
+				end
+			end
 
 			if mod(t, save_traces_timestep) == 0
 				weight_tracker_pre[q,:] = weights[1, pre_synapses_one]
