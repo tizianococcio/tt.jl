@@ -20,7 +20,7 @@ function sim(weights::Matrix{Float64},
 	@unpack Ne, Ni = weights_params
 	@unpack neurons, ft = spikes
 
-	SIM_VER = "0.1.7"
+	SIM_VER = "0.1.9"
 
 
 	# triplet params (local copy has dramatic speed up)
@@ -78,29 +78,13 @@ function sim(weights::Matrix{Float64},
 	jex = 0.78 #external to e strength	(noise)
 	jix = 1.27 #external to i strength	(noise)
 
-	#voltage based stdp
-	altd = .0008 #ltd strength
-	altp = .0014 #ltp strength
-	thetaltd = -70 #ltd voltage threshold
-	thetaltp = -49 #ltp voltage threshold
-	tauu = 10 #time constant of low-pass filtered membrane voltage (for LTD)
-	tauv = 7 #time constant of low-pass filtered membrane voltage (for LTP)
-	taux = 15 #time constant low-pass filtered spike train
-
 	#inhibitory stdp
 	tauy = 20 #width of istdp curve
 	eta = 1 #istdp learning rate
 	r0 = .003 #target rate (khz)
     alpha = 2*r0*tauy; #rate trace threshold for istdp sign (kHz) (so the 2 has a unit)
 
-
-
-	#populations
-	Npop = size(popmembers,2) #number of assemblies
-	Nmaxmembers = size(popmembers,1) #maximum number of neurons in a population
-
 	#simulation
-	Nskip = 1000 #how often (in number of timesteps) to save w_in
 	vpeak = 20 #cutoff for voltage.  when crossed, record a spike and reset
 	normalize_time = 20 #how often to normalize rows of ee weights
 	stdpdelay = 1000 #time before stdp is activated, to allow transients to die out
@@ -152,16 +136,10 @@ function sim(weights::Matrix{Float64},
 	wadapt = aw_adapt*(vre-vleake)*ones(Ne) #adaptation current
 	lastSpike = -100*ones(Ncells) #last time the neuron spiked
 	trace_istdp = zeros(Ncells) #low-pass filtered spike train for istdp
-	u_vstdp = vre*zeros(Ne)	# membrane voltage used in the voltage-based STDP rule (formula 5)
-	v_vstdp = vre*zeros(Ne)	# membrane voltage used in the voltage-based STDP rule (formula 5)
-	x_vstdp = zeros(Ne)	# spike train used in the voltage-based STDP rule (formula 5)
 
 	Nsteps = round(Int,simulation_time/dt)
 	inormalize = round(Int,normalize_time/dt)
 	rates = zeros(Float32, 2, Nsteps)
-
-	exc_spike_count_bin = 0
-	inh_spike_count_bin = 0
 
 	# This will assign the first firing time. Is set to -1 if all_ft contains no firing times
 	next_firing_time = -1
@@ -210,12 +188,6 @@ function sim(weights::Matrix{Float64},
 	# postsynaptic detectors
 	o1 = zeros(Ne)	
 	o2 = zeros(Ne)
-
-	# detectors trackers
-	do1 = 0.0*Vector{Float64}(undef,Nsteps)
-	do2 = 0.0*Vector{Float64}(undef,Nsteps)
-	dr1 = 0.0*Vector{Float64}(undef,Nsteps)
-	dr2 = 0.0*Vector{Float64}(undef,Nsteps)
 
 	#begin main simulation loop
 	iterations = ProgressBar(1:Nsteps)
@@ -291,9 +263,6 @@ function sim(weights::Matrix{Float64},
 			if cc <= Ne	# is the current cell an E neuron?
 				vth[cc] += dt*(vth0 - vth[cc])/tauth;	# Adaptive threshold of E neurons (formula 2)
 				wadapt[cc] += dt*(aw_adapt*(v[cc]-vleake) - wadapt[cc])/tauw_adapt;	# Adaptation current of E neurons (formula 3)
-				# u_vstdp[cc] += dt*(v[cc] - u_vstdp[cc])/tauu;	# update membrane voltage
-				# v_vstdp[cc] += dt*(v[cc] - v_vstdp[cc])/tauv;	# update membrane voltage
-				# x_vstdp[cc] -= dt*x_vstdp[cc]/taux;	# update spike train
 			end
 
 			if t > (lastSpike[cc] + taurefrac) #not in refractory period
@@ -318,10 +287,6 @@ function sim(weights::Matrix{Float64},
 				voltage_tracker[tt] = v[1]
 				adaptation_current_tracker[tt] = wadapt[1]
 				adaptive_threshold_tracker[tt] = vth[1]
-				# do1[tt] = o1[1]
-				# dr1[tt] = r1[1]
-				# do2[tt] = o2[1]
-				# dr2[tt] = r2[1]
 
 				if spiked[cc] #spike occurred
 					push!(times[cc], t);	# Times at which the neurons spiked
@@ -400,16 +365,6 @@ function sim(weights::Matrix{Float64},
 					end
 				end
 			end
-
-			if mod(t, save_traces_timestep) == 0
-				weight_tracker_pre[q,:] = weights[1, pre_synapses_one]
-				weight_tracker_post[q,:] = weights[post_synapses_one, 1]
-				do1[q] = o1[1]
-				dr1[q] = r1[1]
-				do2[q] = o2[1]
-				dr2[q] = r2[1]		
-				q += 1		
-			end
 		end # end learning loop
 
 
@@ -477,5 +432,5 @@ function sim(weights::Matrix{Float64},
 		println("Done saving parameters")
 	end
 
-	return weights, times, rates, (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, dr1, do1, dr2, do2, (Matrix{Float64}(undef, 0,0), Matrix{Float64}(undef, 0,0)))
+	return weights, times, rates, (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker)
 end
