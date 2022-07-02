@@ -23,6 +23,16 @@ struct Trackers <: TrackersT
     o₂::Matrix{Float64}
 end
 
+
+Plots.default(
+    size = (1000,600),
+    framestyle = :box,    
+    titlefont=font(20,"Computer Modern"),
+    xtickfont=font(14,"Computer Modern"),
+    ytickfont=font(14,"Computer Modern"),
+    guidefont=font(14,"Computer Modern")
+)
+
 include("parameters.jl")
 include("frame.jl")
 include("voltage.jl")
@@ -41,6 +51,7 @@ include("classification_layer.jl")
 include("experiment.jl")
 include("evaluation.jl")
 include("utils.jl")
+include("analysis/dynamics.jl")
 
 greet() = print("Hello World!")
 
