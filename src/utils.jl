@@ -56,3 +56,19 @@ end
 function loadexpobject(filename::String)
     load_object(joinpath(tt.processeddatadir(), filename))
 end
+
+function get_weight_files_list(in::InputLayer)
+    folder = joinpath(in.store.folder, "weights")
+    files = []
+    for file_ in readdir(folder)
+        if startswith(file_,"weights") && endswith(file_,"h5")
+            filename = joinpath(folder,file_)
+            tt.LKD.h5open(filename,"r") do fid
+                tt = read(fid["t"])
+                push!(files,(tt, filename))
+            end
+        end
+        sort!(files,by=x->x[1])
+    end
+    files
+end
