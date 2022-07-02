@@ -44,3 +44,15 @@ function preparefolder(folder::String,
     mkdir(joinpath(folder, "phone_states"))
     mkdir(joinpath(folder, "spikes"))    
 end
+
+function savexpdata(exp_name, what; kargs...)
+    JLD2.jldsave(joinpath(tt.processeddatadir(), "$(exp_name)_$(what).jld2"); kargs...)
+end
+
+function loadexpdata(exp_name, what)
+    jldopen(joinpath(tt.processeddatadir(), "$(exp_name)_$(what).jld2"))
+end
+
+function loadexpobject(filename::String)
+    load_object(joinpath(tt.processeddatadir(), filename))
+end

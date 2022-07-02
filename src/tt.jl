@@ -8,12 +8,27 @@ using SpikeTimit
 using ContentHashes
 using StatsBase
 using Dates
+using Plots
+
+abstract type TrackersT end
+struct Trackers <: TrackersT
+    Voltage::Matrix{Float64}
+    AdaptCurrent::Matrix{Float64}
+    AdaptThresh::Matrix{Float64}
+    WeightPre::Vector{Matrix{Float64}} # each matrix = Nsteps x Nsynapses
+    WeightPost::Vector{Matrix{Float64}}
+    r₁::Matrix{Float64}
+    r₂::Matrix{Float64}
+    o₁::Matrix{Float64}
+    o₂::Matrix{Float64}
+end
 
 include("parameters.jl")
 include("frame.jl")
 include("voltage.jl")
 include("voltage_m.jl")
 include("triplet.jl")
+include("triplet_async.jl")
 include("triplet_traces.jl")
 include("triplet_det.jl")
 include("triplet_traces_alt.jl") # decreases detectors only if there is no spikes
