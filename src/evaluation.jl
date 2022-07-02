@@ -6,27 +6,36 @@ using CairoMakie, ColorSchemes
 using Plots
 using Plots.PlotMeasures
 
-function evaluate(net_in::tt.InputLayer, net_out::tt.SNNOut, allinfo = false, makeplots = true)
-    id = net_in.id
-    out = net_out
-    type = net_in.stdp isa tt.TripletSTDP ? "Triplet" : "Voltage"
-
+function eval_words(id, out, type, makeplots=false)
     wc = tt.words_classifier(id, out)
     cmw = tt.compute_confmat(wc.y, wc.y_hat)
     if makeplots
         f = tt.makeconfmat(cmw, wc.labels, "Words ($type)")
         tt.saveplot(id*"cmw_($type).pdf", f);
     end
+    wc, cmw
+end
 
+function eval_phones(id, out, type, makeplots=false)
     pc = tt.phones_classifier(id, out)
     cmp = tt.compute_confmat(pc.y, pc.y_hat)
     if makeplots
         f = tt.makeconfmat(cmp, pc.labels, "Phones ($type)")
         tt.saveplot(id*"cmp_($type).pdf", f);
     end
+    pc, cmp
+end
+
+function evaluate(net_in::tt.InputLayer, net_out::tt.SNNOut, allinfo = false, makeplots = true)
+    id = net_in.id
+    out = net_out
+    type = net_in.stdp isa tt.TripletSTDP ? "Triplet" : "Voltage"
+
+    wc, cmw = eval_words(id, out, type, makeplots)
+    pc, cmp = eval_phones(id, out, type, makeplots)
 
     if !allinfo
-        (words=wc.accuracy, phones=pc.accuracy) 
+        (words=(wc.accuracy, wc.kappa), phones=(pc.accuracy, pc.kappa)) 
     else
         (words=wc.accuracy, phones=pc.accuracy, cmw=cmw, cmp=cmp, w_labels=wc.labels, p_labels=pc.labels)
     end

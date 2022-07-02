@@ -35,8 +35,16 @@ function plotsdir()
     c["plots"]
 end
 
-function saveplot(filename::String, f::Figure; kargs...)
-    CairoMakie.save(joinpath(tt.plotsdir(), filename), f; kargs...)
+function saveplot(filename::String, f::Union{Figure, Plots.Plot{Plots.GRBackend}}; kargs...)
+    saveplot(f, filename; kargs...)
+end
+
+function saveplot(f::Union{Figure, Plots.Plot{Plots.GRBackend}}, filename::String; kargs...)
+    if f isa Plots.Plot{Plots.GRBackend}
+        savefig(f, joinpath(tt.plotsdir(), filename); kargs...)
+    else
+        CairoMakie.save(joinpath(tt.plotsdir(), filename), f; kargs...)
+    end
 end
 
 function get_timit_train_dataframe()
@@ -51,6 +59,29 @@ function get_timit_train_dataframe(path::String)
 end
 function get_timit_test_dataframe(path::String)
     _get_timit_dataframe(path, which="test")
+end
+
+function get_dialectdict()
+    # Dict(
+    #     "1" => "New England",
+    #     "2" => "Northern",
+    #     "3" => "North Midland",
+    #     "4" => "South Midland",
+    #     "5" => "Southern",
+    #     "6" => "New York City",
+    #     "7" => "Western",
+    #     "8" => "Moved around"
+    # )
+    Dict(
+        1 => "New England",
+        2 => "Northern",
+        3 => "North Midland",
+        4 => "South Midland",
+        5 => "Southern",
+        6 => "New York City",
+        7 => "Western",
+        8 => "Moved around"
+    )
 end
 
 function _get_timit_dataframe(path::String; which="train")
