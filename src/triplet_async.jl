@@ -2,27 +2,27 @@ using Printf
 using ProgressBars
 using Distributions
 
-
-
-"""
-allows to track an arbitrary number of neurons
-"""
-function sim_m_flex(weights::Matrix{Float64},
-	popmembers::Matrix{Int64},
-	spikes,#::SpikeTimit.FiringTimes,
-	transcriptions::SpikeTimit.Transcriptions,
-	net::LKD.NetParams,
-	store::LKD.StoreParams,
-	weights_params::LKD.WeightParams,
-	projections::LKD.ProjectionParams,
-	tri_stdp::TripletSTDP, ntrack::Int = 1)
-
-	SIM_VER = "0.1.8"
+#this file is part of litwin-kumar_doiron_formation_2014
+#Copyright (C) 2014 Ashok Litwin-Kumar
+#see README for more information
+function sim_async(weights::Matrix{Float64},
+			popmembers::Matrix{Int64},
+			spikes,#::SpikeTimit.FiringTimes,
+			transcriptions::SpikeTimit.Transcriptions,
+			net::LKD.NetParams,
+			store::LKD.StoreParams,
+			weights_params::LKD.WeightParams,
+			projections::LKD.ProjectionParams,
+			tri_stdp::TripletSTDP,
+			ch::Channel)
 
 	@unpack dt, simulation_time, learning =	net
-	@unpack folder, save_weights, save_states, save_network, save_timestep, save_traces_timestep = store
+	@unpack folder, save_weights, save_states, save_network, save_timestep = store
 	@unpack Ne, Ni = weights_params
 	@unpack neurons, ft = spikes
+
+	SIM_VER = "0.1.9"
+
 
 	# triplet params (local copy has dramatic speed up)
 	A⁺₂::Float32 = copy(tri_stdp.A_plus_2)
@@ -33,7 +33,7 @@ function sim_m_flex(weights::Matrix{Float64},
 	τʸ::Float32  = copy(tri_stdp.tau_y)
 	τ⁺::Float32  = copy(tri_stdp.tau_plus)
 	τ⁻::Float32  = copy(tri_stdp.tau_minus)	
-	
+
 	##labels and savepoints
 	savepoints = SpikeTimit.get_savepoints(transcriptions, 
 										per_word = store.points_per_word, 
@@ -84,7 +84,6 @@ function sim_m_flex(weights::Matrix{Float64},
 	eta = 1 #istdp learning rate
 	r0 = .003 #target rate (khz)
     alpha = 2*r0*tauy; #rate trace threshold for istdp sign (kHz) (so the 2 has a unit)
-
 
 	#simulation
 	vpeak = 20 #cutoff for voltage.  when crossed, record a spike and reset
@@ -167,8 +166,15 @@ function sim_m_flex(weights::Matrix{Float64},
 	word_v = Matrix{Float64}(undef, Ne,measurements_per_word)
 	phone_v =Matrix{Float64}(undef, Ne,measurements_per_phone)
 
-	println("starting simulation v$SIM_VER [with arbitrary traces]")
-
+	put!(ch, ("MSG", "starting async simulation v$SIM_VER"))
+	# trackers for 3 neurons
+	#voltage_neuron_1_tracker = 0.0*Vector{Float64}(undef,Nsteps)
+	#adaptation_current_neuron_1_tracker = 0.0*Vector{Float64}(undef,Nsteps)
+	#adaptive_threshold = 0.0*Vector{Float64}(undef,Nsteps)
+	voltage_tracker = 0.0*Vector{Float64}(undef,Nsteps)
+	adaptation_current_tracker = 0.0*Vector{Float64}(undef,Nsteps)
+	adaptive_threshold_tracker = 0.0*Vector{Float64}(undef,Nsteps)
+	
     nzRowsAll = [findall(weights[nn,1:Ne].!=0) for nn = 1:Ncells] #Dick: for all neurons lists E postsynaptic neurons
     nzColsEE  = [findall(weights[1:Ne,mm].!=0) for mm = 1:Ne]     #Dick: for E neurons lists E presynaptic neurons
     nzRowsEE  = [findall(weights[mm,1:Ne].!=0) for mm = 1:Ne]     #Dick: for E neurons lists E postsynaptic neurons
@@ -184,26 +190,10 @@ function sim_m_flex(weights::Matrix{Float64},
 	o1 = zeros(Ne)	
 	o2 = zeros(Ne)
 
-	trace_size = ceil(Int, simulation_time / save_traces_timestep)
-
-	# trackers
-	track_volt = zeros(Nsteps, ntrack)
-	track_adapt_curr = zeros(Nsteps, ntrack)
-	track_adapt_thresh = zeros(Nsteps, ntrack)
-	track_r1 = zeros(Nsteps, ntrack)
-	track_r2 = zeros(Nsteps, ntrack)
-	track_o1 = zeros(Nsteps, ntrack)
-	track_o2 = zeros(Nsteps, ntrack)
-	pre_synapses = [findall(weights[i,i:Ne] .!= 0.0) for i=1:ntrack]
-	post_synapses = [findall(weights[i:Ne,i] .!= 0.0) for i=1:ntrack]
-	track_weight_pre = [Matrix{Float64}(undef, trace_size, length(pre_synapses[i])) for i=1:ntrack]
-	track_weight_post = [Matrix{Float64}(undef, trace_size, length(post_synapses[i])) for i=1:ntrack]
-
-	q = 1; # save timestep index
-
 	#begin main simulation loop
 	iterations = ProgressBar(1:Nsteps)
-	@fastmath @inbounds for tt = iterations
+	# @fastmath @inbounds for tt = iterations
+	@fastmath @inbounds for tt = 1:Nsteps
 		
 		t = dt*tt
 		mob_mean = tt- 100 >1 ? tt-100 : 1
@@ -227,6 +217,7 @@ function sim_m_flex(weights::Matrix{Float64},
                 end
             end
         end #end normalization
+		
 
 		# Add the external input signal into the model.
 		if tt == next_firing_time
@@ -296,16 +287,9 @@ function sim_m_flex(weights::Matrix{Float64},
 					end
 				end
 
-				# trackers
-				for i=1:ntrack
-					track_volt[tt, i] = v[i]
-					track_adapt_curr[tt, i] = wadapt[i]
-					track_adapt_thresh[tt, i] = vth[i]
-					track_r1[tt, i] = r1[i]
-					track_r2[tt, i] = r2[i]
-					track_o1[tt, i] = o1[i]
-					track_o2[tt, i] = o2[i]
-				end
+				voltage_tracker[tt] = v[1]
+				adaptation_current_tracker[tt] = wadapt[1]
+				adaptive_threshold_tracker[tt] = vth[1]
 
 				if spiked[cc] #spike occurred
 					push!(times[cc], t);	# Times at which the neurons spiked
@@ -314,6 +298,7 @@ function sim_m_flex(weights::Matrix{Float64},
                     trace_istdp[cc] += 1.0; #increase the spike trace
 
                     if cc <= Ne
+                        # x_vstdp[cc] += 1.0/taux;
                         vth[cc] = vth0 + ath;
                         wadapt[cc] += bw_adapt
                     end
@@ -383,14 +368,6 @@ function sim_m_flex(weights::Matrix{Float64},
 					end
 				end
 			end
-
-			if mod(t, save_traces_timestep) == 0
-				for i=1:ntrack
-					track_weight_pre[i][q, :] = weights[i, pre_synapses[i]]
-					track_weight_post[i][q, :] = weights[post_synapses[i], i]
-				end
-				q += 1		
-			end
 		end # end learning loop
 
 
@@ -402,8 +379,9 @@ function sim_m_flex(weights::Matrix{Float64},
 		rates[1,tt] = mean(trace_istdp[1:Ne])/2/tauy*1000
 		rates[2,tt] = mean(trace_istdp[Ne+1:end])/2/tauy*1000
 
-		if (tt == 1 || mod(tt, save_timestep) == 0) && save_weights
-			@time LKD.save_network_weights(weights, tt/1000, folder)
+		if (tt == 1 || mod(tt, save_timestep) == 0)
+			# LKD.save_network_weights(weights, tt/1000, folder);
+			put!(ch, ("W", weights))
 		end
 
 		if save_states
@@ -414,7 +392,7 @@ function sim_m_flex(weights::Matrix{Float64},
 				word_v[:,inword_index] .= v[1:Ne]
 				#Save to file if we are at the last measurement for the current phone
 				if inword_index == measurements_per_word
-					LKD.save_network_state(word_w, word_v, words[word_index], word_index, joinpath(folder,"word_states"))
+					LKD.save_network_state(word_w, word_v, words[word_index], word_index, joinpath(folder,"word_states"));
 					if word_index < length(words)
 						word_index += 1
 						inword_index = 1
@@ -433,7 +411,7 @@ function sim_m_flex(weights::Matrix{Float64},
 				phone_v[:,inphone_index] .= v[1:Ne]
 				#Save to file if we are at the last measurement for the current phone
 				if inphone_index == measurements_per_phone
-					LKD.save_network_state(phone_w, phone_v, phones[phone_index], phone_index, joinpath(folder,"phone_states"))
+					LKD.save_network_state(phone_w, phone_v, phones[phone_index], phone_index, joinpath(folder,"phone_states"));
 					if phone_index < length(phones)
 						phone_index += 1
 						inphone_index = 1
@@ -444,18 +422,21 @@ function sim_m_flex(weights::Matrix{Float64},
 				next_phone_savepoint = phones_sp[phone_index, inphone_index]
 			end
 		end #saving states
-
 	end #end loop over time
 	
-	trcks = Trackers(track_volt, track_adapt_curr, track_adapt_thresh, track_weight_pre, track_weight_post, track_r1, track_r2, track_o1, track_o2)
 	if save_network
-		jldopen(joinpath(folder, "output.jld2"), "w") do file
-			file["weights"] = weights
-			file["spikes"] = times
-			file["rates"] = rates
-			file["trackers"] = trcks
-		end
+		tt.LKD.save_network(popmembers, weights, folder)
+		@time LKD.save_network_weights(weights, simulation_time/1000, folder)
+		@time LKD.save_network_spikes(times, folder)
+		@time LKD.save_network_rates(rates, folder)	# Save mean weights over inhibitory neurons
+		
+		LKD.save_neuron_membrane(voltage_tracker, folder)
+		LKD.save_neuron_membrane(adaptation_current_tracker, folder; type="w_adapt")
+		LKD.save_neuron_membrane(adaptive_threshold_tracker, folder; type="adaptive_threshold")
 		println("Done saving parameters")
 	end
-	return (w=weights, ft=times, fr=rates, trcks=trcks)
+	put!(ch, ("W", weights))
+	put!(ch, ("T", times))
+	put!(ch, ("R", rates))
+	return weights, times, rates, (voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker)
 end

@@ -34,7 +34,7 @@ trackers_voltage = Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}, Vect
     weights::Matrix{Float64}
     firing_times::Vector{Vector{Float64}}
     firing_rates::Matrix{Float32}
-    trackers:: Union{trackers_voltage, trackers_triplet_basic, trackers_triplet} 
+    trackers:: Union{trackers_voltage, trackers_triplet_basic, trackers_triplet, TrackersT} 
     phone_states::Vector{Any}
     word_states::Vector{Any}
 end
@@ -79,14 +79,6 @@ function _run_eSTDPoff(snn::SNNLayer)
     snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp);
 end
 
-function _run_triplet_dins(snn::SNNLayer)
-    snn.store.folder *= "_dins"
-    LKD.makefolder(snn.store.folder);
-    LKD.cleanfolder(snn.store.folder);
-    tt.sim_m_dins(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
-    snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp);
-end
-
 function _run_triplet_barebones(snn::SNNLayer)
     snn.store.folder *= "_bb"
     LKD.makefolder(snn.store.folder);
@@ -106,10 +98,28 @@ function _run_triplet_deterministic(snn::SNNLayer, dua=true)
     snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp, dua);
 end
 
+function _run_flex_tracks(snn::SNNLayer, ntrack::Int)
+    snn.store.save_states = false
+    snn.store.save_weights = false
+    tt.sim_m_flex(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
+    snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp, ntrack);
+end
+function _run_async(snn::SNNLayer, ch::Channel)
+    snn.store.save_states = false
+    snn.store.save_network = false
+    snn.store.save_weights = false
+    W, T, R, trackers = tt.sim_async(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
+    snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp, ch);
+    return SNNOut(W, T, R, trackers, [], [])    
+
+
+end
+
 """
 runs the simulation and stores the network states. Overwrite previous data.
+`trackers` defines how many neurons to track
 """
-function train(snn::SNNLayer; overwrite=false, with_traces=false, eSTDP=true)
+function train(snn::SNNLayer; overwrite=false, with_traces=false, eSTDP=true, trackers::Int=0)
 
     if isdir(snn.store.folder)
         if overwrite
@@ -136,14 +146,19 @@ end
 
 """
 runs the simulation on a previously trained network. Data for this network must exist on disk.
+transient: if true removes the entire simulation data from disk at simulation end
 """
-function test(snn::SNNLayer; trial=0)
+function test(snn::SNNLayer; trial=0, ntrack = 0, transient=false)
     snn.net.learning = false
     if trial == 0
         snn.store.save_weights = false
         # overwrites state in the current folder but keep weights and previous trials
         tt.preparefolder(snn.store.folder)
-        res = _run(snn)
+        if ntrack > 0
+            res = _run_flex_tracks(snn, ntrack)
+        else
+            res = _run(snn)
+        end
     else
         # additional trials: creates subfolders
         if !isdir(snn.store.folder)
@@ -159,6 +174,9 @@ function test(snn::SNNLayer; trial=0)
             snn.store.save_weights=false
             @info snn.store
             res = _run(snn)
+            if transient
+                rm(snn.store.folder; recursive=true)
+            end
         else
             @info "trial already exists, now loading it."
             res = load(snn.store.folder)
@@ -183,45 +201,13 @@ function test_with_traces(snn::SNNLayer)
 end
 
 function _loadtrackers(f)
-    voltage_tracker = f["voltage_tracker"]
-    adaptation_current_tracker = f["adaptation_current_tracker"]
-    adaptive_threshold_tracker = f["adaptive_threshold_tracker"]
-    trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker
-    if haskey(f, "r1") && haskey(f, "weight_tracker_pre")
-        r1 = f["r1"]
-        r2 = f["r2"]
-        o1 = f["o1"]
-        o2 = f["o2"]
-        weight_tracker_pre = f["weight_tracker_pre"]
-        weight_tracker_post = f["weight_tracker_post"]
-        trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, r1, o1, r2, o2, (weight_tracker_pre, weight_tracker_post)
-    end
-    
-    if haskey(f, "u_trace") && haskey(f, "weight_tracker_pre")
-        u_trace = f["u_trace"]
-        v_trace = f["v_trace"]
-        weight_tracker_pre = f["weight_tracker_pre"]
-        weight_tracker_post = f["weight_tracker_post"]
-        trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, u_trace, v_trace, (weight_tracker_pre, weight_tracker_post)
-    end
-    trackers
-end
-
-"""
-loads network from disk and updates `in` with the stored weights
-"""
-function load(in::tt.InputLayer)
-    datafile = joinpath(in.store.folder, "output.jld2")
-    SS_words = LKD.read_network_states(joinpath(in.store.folder,"word_states"))
-    SS_phones = LKD.read_network_states(joinpath(in.store.folder,"phone_states"))
-    if isfile(datafile)
-        f = jldopen(datafile, "r")
-        W_last = f["weights"]
-        T = f["spikes"]
-        R = f["rates"]
+    if haskey(f, "trackers")
+        trackers = f["trackers"]
+    else
         voltage_tracker = f["voltage_tracker"]
         adaptation_current_tracker = f["adaptation_current_tracker"]
         adaptive_threshold_tracker = f["adaptive_threshold_tracker"]
+        trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker
         if haskey(f, "r1") && haskey(f, "weight_tracker_pre")
             r1 = f["r1"]
             r2 = f["r2"]
@@ -239,6 +225,23 @@ function load(in::tt.InputLayer)
             weight_tracker_post = f["weight_tracker_post"]
             trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker, u_trace, v_trace, (weight_tracker_pre, weight_tracker_post)
         end
+    end
+    trackers
+end
+
+"""
+loads network from disk and updates `in` with the stored weights
+"""
+function load(in::tt.InputLayer)
+    datafile = joinpath(in.store.folder, "output.jld2")
+    SS_words = LKD.read_network_states(joinpath(in.store.folder,"word_states"))
+    SS_phones = LKD.read_network_states(joinpath(in.store.folder,"phone_states"))
+    if isfile(datafile)
+        f = jldopen(datafile, "r")
+        W_last = f["weights"]
+        T = f["spikes"]
+        R = f["rates"]
+        trackers = _loadtrackers(f)
         close(f)
         w_trace = LKD.read_network_weights(in.store.folder)
     else
@@ -279,10 +282,6 @@ function load(folder::String)
         T = f["spikes"]
         R = f["rates"]
         trackers = _loadtrackers(f)
-        # voltage_tracker = f["voltage_tracker"]
-        # adaptation_current_tracker = f["adaptation_current_tracker"]
-        # adaptive_threshold_tracker = f["adaptive_threshold_tracker"]
-        # trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker
         close(f)
     else
         # "legacy" mode
