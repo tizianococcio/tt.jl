@@ -51,7 +51,6 @@ version that takes an iterator. mostly used to load many files without using a l
 """
 function compute_klds(trace::WeightTrace, n)
     t = trace.count
-    fine = t - 1
     _start = trace[1][1:n,1:n][:]
     _end = trace[trace.count][1:n,1:n][:]
     first_vs_t = Vector{Float64}(undef, t)
