@@ -49,13 +49,13 @@ function _loadinputlayer(id::String)
     il, d["params"]
 end
 
-function _loadinputlayer(id::String, stdp::STDP)
+function _loadinputlayer(id::String, stdp::STDP, subfolder="")
     @assert input_layer_exists(id) "Input layer does not exist."
     ils_folder = joinpath(tt.rawdatadir(), "input_layers");
     d = JLD2.load(joinpath(ils_folder, "$(id).jld2"))
     il = d["layer"]
     il.id = id
-    il.store.folder = _rebuildfullsimpath(id)
+    il.store.folder = _rebuildfullsimpath(subfolder, id)
     il.stdp = stdp   
     il, d["params"]
 end
@@ -167,7 +167,7 @@ function InputLayer(params::LKD.InputParams, weights_params::LKD.WeightParams, s
     id = get_folder_name(params, weights_params, stdp);  
     if input_layer_exists(id)
         @info "Input layer ($(id)) exists, loading it."
-        il, _ = _loadinputlayer(id, stdp)
+        il, _ = _loadinputlayer(id, stdp, subfolder)
         il
     else
         df = tt.load_dataset(tt.datasetdir(), params);
