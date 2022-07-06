@@ -4,7 +4,7 @@ using SpikeTimit
 using LKD
 using YAML
 using MacroTools
-using CairoMakie
+using Makie
 
 function load_conf()
     return YAML.load_file(joinpath(@__DIR__, "../conf/paths.yml"))

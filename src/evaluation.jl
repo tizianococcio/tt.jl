@@ -2,7 +2,7 @@
 using DataFrames
 using StatsBase
 using MLJLinearModels
-using CairoMakie, ColorSchemes
+using Makie, ColorSchemes
 using Plots
 using Plots.PlotMeasures
 
