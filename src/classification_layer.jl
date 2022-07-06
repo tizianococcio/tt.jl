@@ -233,6 +233,15 @@ function get_phones_features(o::tt.SNNOut)
     X, labels
 end
 
+function words_classifier(id, name::String, out::tt.SNNOut)
+    cl = tt.ClassificationLayer(id, name, out)
+    s, θ = tt.on_words(cl)
+    X, labels = tt.get_words_features(out)
+    y, y_hat, n_classes = tt.predict(X, labels, θ)
+    acc = tt.accuracy(y, y_hat)
+    ks = tt.kappa_score(y, y_hat)
+    (accuracy=acc, kappa=ks, y=y, y_hat=y_hat, labels=collect(Set(labels)))
+end
 function words_classifier(id, out::tt.SNNOut)
     cl = tt.ClassificationLayer(id, out)
     s, θ = tt.on_words(cl)
@@ -243,6 +252,16 @@ function words_classifier(id, out::tt.SNNOut)
     (accuracy=acc, kappa=ks, y=y, y_hat=y_hat, labels=collect(Set(labels)))
 end
 
+
+function phones_classifier(id, name::String, out::tt.SNNOut)
+    cl = tt.ClassificationLayer(id, name, out)
+    s, θ = tt.on_phones(cl)
+    X, labels = tt.get_phones_features(out)
+    y, y_hat, n_classes = tt.predict(X, labels, θ)
+    acc = tt.accuracy(y, y_hat)
+    ks = tt.kappa_score(y, y_hat)
+    (accuracy=acc, kappa=ks, y=y, y_hat=y_hat, labels=collect(Set(labels)))    
+end
 function phones_classifier(id, out::tt.SNNOut)
     cl = tt.ClassificationLayer(id, out)
     s, θ = tt.on_phones(cl)
