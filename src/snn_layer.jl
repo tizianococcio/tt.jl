@@ -173,7 +173,11 @@ function test(snn::SNNLayer; trial=0, ntrack = 0, transient=false)
             snn.store.save_network=true
             snn.store.save_weights=false
             @info snn.store
-            res = _run(snn)
+            if ntrack > 0
+                res = _run_flex_tracks(snn, ntrack)
+            else
+                res = _run(snn)
+            end
             if transient
                 rm(snn.store.folder; recursive=true)
             end
