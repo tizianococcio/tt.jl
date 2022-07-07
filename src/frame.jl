@@ -43,7 +43,7 @@ function saveplot(f::Union{Figure, Plots.Plot{Plots.GRBackend}}, filename::Strin
     if f isa Plots.Plot{Plots.GRBackend}
         savefig(f, joinpath(tt.plotsdir(), filename); kargs...)
     else
-        CairoMakie.save(joinpath(tt.plotsdir(), filename), f; kargs...)
+        Makie.save(joinpath(tt.plotsdir(), filename), f; kargs...)
     end
 end
 
