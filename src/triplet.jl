@@ -20,7 +20,7 @@ function sim(weights::Matrix{Float64},
 	@unpack Ne, Ni = weights_params
 	@unpack neurons, ft = spikes
 
-	SIM_VER = "0.1.9"
+	SIM_VER = "0.2.0"
 
 
 	# triplet params (local copy has dramatic speed up)
@@ -140,6 +140,7 @@ function sim(weights::Matrix{Float64},
 	Nsteps = round(Int,simulation_time/dt)
 	inormalize = round(Int,normalize_time/dt)
 	rates = zeros(Float32, 2, Nsteps)
+	last_input_time = transcriptions.phones.intervals[end][end]*1000
 
 	# This will assign the first firing time. Is set to -1 if all_ft contains no firing times
 	next_firing_time = -1
@@ -166,6 +167,7 @@ function sim(weights::Matrix{Float64},
 	phone_v =Matrix{Float64}(undef, Ne,measurements_per_phone)
 
 	println("starting simulation v$SIM_VER")
+	@info "Last input time is $(round(Int, last_input_time/dt))"
 	# trackers for 3 neurons
 	#voltage_neuron_1_tracker = 0.0*Vector{Float64}(undef,Nsteps)
 	#adaptation_current_neuron_1_tracker = 0.0*Vector{Float64}(undef,Nsteps)
@@ -376,7 +378,8 @@ function sim(weights::Matrix{Float64},
 		rates[1,tt] = mean(trace_istdp[1:Ne])/2/tauy*1000
 		rates[2,tt] = mean(trace_istdp[Ne+1:end])/2/tauy*1000
 
-		if (tt == 1 || mod(tt, save_timestep) == 0) && save_weights
+		# also make sure to save weights at the moment the input ends (for testing with stdp off)
+		if (tt == 1 || mod(tt, save_timestep) == 0 || tt == round(Int, last_input_time/dt)) && save_weights
 			LKD.save_network_weights(weights, tt/1000, folder);
 		end
 

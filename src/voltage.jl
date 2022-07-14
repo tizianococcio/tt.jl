@@ -143,6 +143,7 @@ function sim(weights::Matrix{Float64},
 	Nsteps = round(Int,simulation_time/dt)
 	inormalize = round(Int,normalize_time/dt)
 	rates = zeros(Float32, 2, Nsteps)
+	last_input_time = transcriptions.phones.intervals[end][end]*1000
 
 	exc_spike_count_bin = 0
 	inh_spike_count_bin = 0
@@ -172,6 +173,7 @@ function sim(weights::Matrix{Float64},
 	phone_v =Matrix{Float64}(undef, Ne,measurements_per_phone)
 
 	println("starting simulation")
+	@info "Last input time is $(round(Int, last_input_time/dt))"
 	# track 1 neuron
 	voltage_neuron_1_tracker = 0.0*Vector{Float64}(undef,Nsteps)
 	adaptation_current_neuron_1_tracker = 0.0*Vector{Float64}(undef,Nsteps)
@@ -361,7 +363,7 @@ function sim(weights::Matrix{Float64},
 		rates[1,tt] = mean(trace_istdp[1:Ne])/2/tauy*1000
 		rates[2,tt] = mean(trace_istdp[Ne+1:end])/2/tauy*1000
 
-		if (tt == 1 || mod(tt, save_timestep) == 0) && save_weights
+		if (tt == 1 || mod(tt, save_timestep) == 0 || tt == round(Int, last_input_time/dt)) && save_weights
 			LKD.save_network_weights(weights, t/1000, folder);
 		end
 
