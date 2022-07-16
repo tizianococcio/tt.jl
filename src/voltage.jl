@@ -364,7 +364,7 @@ function sim(weights::Matrix{Float64},
 		rates[2,tt] = mean(trace_istdp[Ne+1:end])/2/tauy*1000
 
 		if (tt == 1 || mod(tt, save_timestep) == 0 || tt == round(Int, last_input_time/dt)) && save_weights
-			LKD.save_network_weights(weights, t/1000, folder);
+			save_compressed_weights(weights, tt/1000, folder);
 		end
 
 		if save_states
@@ -408,7 +408,7 @@ function sim(weights::Matrix{Float64},
 	end #end loop over time
 	
 
-	@time LKD.save_network_weights(weights, simulation_time/1000, folder)
+	@time save_compressed_weights(weights, tt/1000, folder);
 	@time LKD.save_network_spikes(times, folder)
 	@time LKD.save_network_rates(rates, folder)	# Save mean weights over inhibitory neurons
 	println("Done saving parameters")

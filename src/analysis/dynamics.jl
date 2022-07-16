@@ -5,11 +5,16 @@ struct WeightTrace
     paths::Vector{String}
 end
 function _readweights(file)
-    tt.LKD.h5open(file,"r") do file_
-        fid = read(file_)
-        W = Array(fid["weights"])    
-        return W
+    if endswith(file, ".h5")
+        W = tt.LKD.h5open(file,"r") do file_
+            fid = read(file_)
+            W = Array(fid["weights"])    
+            W
+        end
+    else
+        W = jldopen(file)["weights"]
     end
+    W
 end
 Base.iterate(S::WeightTrace, state=1) = state > S.count ? nothing : (_readweights(S.paths[state]), state+1)
 Base.firstindex(S::tt.WeightTrace) = 1

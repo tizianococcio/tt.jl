@@ -385,7 +385,7 @@ function sim_m(weights::Matrix{Float64},
 		rates[2,tt] = mean(trace_istdp[Ne+1:end])/2/tauy*1000
 
 		if (tt == 1 || mod(tt, save_timestep) == 0) && save_weights
-			@time LKD.save_network_weights(weights, tt/1000, folder)
+			save_compressed_weights(weights, tt/1000, folder);
 		end
 
 		if save_states
@@ -438,7 +438,7 @@ function sim_m(weights::Matrix{Float64},
 	# LKD.save_neuron_membrane(adaptive_threshold, folder; type="adaptive_threshold")
 	# LKD.save_neuron_membrane(weight_tracker_pre, folder; type="weight_tracker_pre")
 	# LKD.save_neuron_membrane(weight_tracker_post, folder; type="weight_tracker_post")
-	jldopen(joinpath(folder, "output.jld2"), "w") do file
+	jldopen(joinpath(folder, "output.jld2"), "w"; compress = true) do file
 		file["weights"] = weights
 		file["spikes"] = times
 		file["rates"] = rates

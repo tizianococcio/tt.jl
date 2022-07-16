@@ -1,7 +1,7 @@
 module tt
 
 using LKD
-using JLD2
+using JLD2, CodecZlib
 using Parameters
 using Revise
 using SpikeTimit

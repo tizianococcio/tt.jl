@@ -56,12 +56,15 @@ end
 function loadexpobject(filename::String)
     load_object(joinpath(tt.processeddatadir(), filename))
 end
+function loadexpobject(exp_name, what)
+    load_object(joinpath(tt.processeddatadir(), "$(exp_name)_$(what).jld2"))
+end
 
 function get_weight_files_list(in::InputLayer)
     folder = joinpath(in.store.folder, "weights")
     files = []
     for file_ in readdir(folder)
-        if startswith(file_,"weights") && endswith(file_,"h5")
+        if startswith(file_,"weights")
             filename = joinpath(folder,file_)
             tt.LKD.h5open(filename,"r") do fid
                 tt = read(fid["t"])
@@ -71,4 +74,8 @@ function get_weight_files_list(in::InputLayer)
         sort!(files,by=x->x[1])
     end
     files
+end
+
+function save_compressed_weights(W, t, folder)
+    jldsave(joinpath(folder, "weights", "weights_T$(round(Int,t))"), true; weights=W, t=t)
 end
