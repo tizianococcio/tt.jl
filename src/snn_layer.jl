@@ -240,6 +240,9 @@ function load(in::tt.InputLayer)
     datafile = joinpath(in.store.folder, "output.jld2")
     SS_words = LKD.read_network_states(joinpath(in.store.folder,"word_states"))
     SS_phones = LKD.read_network_states(joinpath(in.store.folder,"phone_states"))
+    files = tt.get_weight_files_list(in)
+    paths = map(files -> files[2], files)
+    
     if isfile(datafile)
         f = jldopen(datafile, "r")
         W_last = f["weights"]
@@ -247,16 +250,16 @@ function load(in::tt.InputLayer)
         R = f["rates"]
         trackers = _loadtrackers(f)
         close(f)
-        w_trace = LKD.read_network_weights(in.store.folder)
+        w_trace = tt.WeightTrace(length(paths), paths)
     else
-        w_trace = LKD.read_network_weights(in.store.folder)
+        w_trace = tt.WeightTrace(length(paths), paths)
         T = LKD.read_network_spikes(in.store.folder)
         R = LKD.read_network_rates(in.store.folder)
         voltage_tracker = LKD.read_neuron_membrane(in.store.folder)
         adaptation_current_tracker = LKD.read_neuron_membrane(in.store.folder; type="w_adapt")
         adaptive_threshold_tracker = LKD.read_neuron_membrane(in.store.folder; type="adaptive_threshold")
         trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker
-        W_last = w_trace[end][2]
+        W_last = w_trace[end]
     end
     in.weights = W_last
     return (snn_layer=SNNLayer(in), out=SNNOut(W_last, T, R, trackers, SS_phones, SS_words), weights_trace=w_trace)
@@ -264,11 +267,14 @@ end
 
 function get_weight_traces(in::InputLayer, just_matrices=false)
     @assert isdir(in.store.folder) "Network $(in.id) not found."
-    w = LKD.read_network_weights(in.store.folder)
+    files = tt.get_weight_files_list(in)
+    ts = map(files -> files[1], files)
+    paths = map(files -> files[2], files)
+    w_trace = tt.WeightTrace(length(paths), paths)
     if just_matrices
-        map(x->x[2], w)
+        w_trace
     else
-        w
+        zip(ts, w_trace)
     end
 end
 
@@ -289,14 +295,16 @@ function load(folder::String)
         close(f)
     else
         # "legacy" mode
-        W = LKD.read_network_weights(folder)
+        files = tt.get_weight_files_list(folder)
+        paths = map(files -> files[2], files)        
+        W = tt.WeightTrace(length(paths), paths)
         T = LKD.read_network_spikes(folder)
         R = LKD.read_network_rates(folder)
         voltage_tracker = LKD.read_neuron_membrane(folder)
         adaptation_current_tracker = LKD.read_neuron_membrane(folder; type="w_adapt")
         adaptive_threshold_tracker = LKD.read_neuron_membrane(folder; type="adaptive_threshold")
         trackers = voltage_tracker, adaptation_current_tracker, adaptive_threshold_tracker
-        W = W[end][2]
+        W = W[end]
     end
     return SNNOut(W, T, R, trackers, SS_phones, SS_words)
 end

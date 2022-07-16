@@ -76,6 +76,22 @@ function get_weight_files_list(in::InputLayer)
     files
 end
 
+function get_weight_files_list(sim_folder::String)
+    folder = joinpath(sim_folder, "weights")
+    files = []
+    for file_ in readdir(folder)
+        if startswith(file_,"weights")
+            filename = joinpath(folder,file_)
+            tt.LKD.h5open(filename,"r") do fid
+                tt = read(fid["t"])
+                push!(files,(tt, filename))
+            end
+        end
+        sort!(files,by=x->x[1])
+    end
+    files
+end
+
 function save_compressed_weights(W, t, folder)
     jldsave(joinpath(folder, "weights", "weights_T$(round(Int,t))"), true; weights=W, t=t)
 end
