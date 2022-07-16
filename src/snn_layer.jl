@@ -171,7 +171,7 @@ function test(snn::SNNLayer; trial=0, ntrack = 0, transient=false)
             tt.LKD.cleanfolder(snn.store.folder)
             snn.store.save_states=true
             snn.store.save_network=true
-            snn.store.save_weights=false
+            snn.store.save_weights=true
             @info snn.store
             if ntrack > 0
                 res = _run_flex_tracks(snn, ntrack)
