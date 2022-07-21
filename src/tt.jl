@@ -45,6 +45,7 @@ include("triplet_traces_alt.jl") # decreases detectors only if there is no spike
 include("triplet_traces_full.jl")
 include("triplet_nostdp.jl")
 include("triplet_barebones.jl")
+include("triplet_fh.jl")
 include("input_layer.jl")
 include("snn_layer.jl")
 include("classification_layer.jl")
