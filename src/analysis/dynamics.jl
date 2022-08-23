@@ -1,5 +1,6 @@
 using StatsBase
 
+# Iterator to read weights 
 struct WeightTrace
     count::Int
     paths::Vector{String}
@@ -52,7 +53,8 @@ function compute_klds(trace, n)
 end
 
 """
-version that takes an iterator. mostly used to load many files without using a lot of memory
+Similar to compute_klds(trace, n) but takes an iterator. 
+Mostly used to load many files without using a lot of memory.
 """
 function compute_klds(trace::WeightTrace, n)
     t = trace.count
@@ -68,7 +70,7 @@ function compute_klds(trace::WeightTrace, n)
 end
 
 """
-version allowing for the weights to be normalized beforehand and to choose the point of "end"
+Allows for the weights to be normalized beforehand and to choose the point of "end"
 """
 function compute_klds(trace::WeightTrace, n, normalize = false, end_id = 0)
     nrmlz(A) = A[:]/sum(A[:])
@@ -98,14 +100,15 @@ function compute_klds(trace::WeightTrace, n, normalize = false, end_id = 0)
     first_vs_t, t_vs_end
 end
 
-using StatsBase
-
-# Jensen-Shannon divergence
+# Jensen-Shannon divergence (JSD)
 function jsd(P,Q)
     M = 0.5*(P + Q)
     0.5*kldivergence(P, M) + 0.5*kldivergence(Q, M)
 end
 
+"""
+Jensen-Shannon divergence between mean JSD of initial and final weights and the pairwise JSD of all weights
+"""
 function shuffle_proximity(initial_weights, final_weights)
     @assert length(initial_weights) == length(final_weights)
     N = length(initial_weights)
@@ -118,24 +121,3 @@ function shuffle_proximity(initial_weights, final_weights)
     end
     JDnm
 end 
-
-# nrmlz(A) = A[:]/sum(A[:])
-# A = rand(10,10)
-# B = rand(10,10)
-# Aend = copy(A)
-# Bend = copy(B)
-
-# start = [nrmlz(A),nrmlz(B)]
-# finish = [nrmlz(Aend), nrmlz(Bend)]
-# shuffle_proximity(start, finish)
-
-# # make them a bit different
-# Aend[2,:] .+= 0.01
-# Bend[3,:] .+= 0.01
-# Bend[4,:] .+= 0.01
-# Bend[5,:] .+= 0.01
-
-# Aend = rand(10,10)
-# Bend = rand(10,10)
-# finish = [nrmlz(Aend), nrmlz(Bend)]
-# shuffle_proximity(start, finish)

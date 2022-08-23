@@ -39,7 +39,7 @@ trackers_voltage = Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}, Vect
     word_states::Vector{Any}
 end
 
-function _run(snn::SNNLayer, traces::Bool=false, eSTDP=true, fh=false)
+function _run(snn::SNNLayer, traces::Bool=false, eSTDP=true)
     @assert (!eSTDP && traces) || (eSTDP&&traces) || (!traces && eSTDP) "Excitatory STDP can be turned off only if running with traces."
     if traces
         if eSTDP
@@ -49,10 +49,6 @@ function _run(snn::SNNLayer, traces::Bool=false, eSTDP=true, fh=false)
             W, T, R, trackers = tt.sim_m_eSTDPoff(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
             snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp);
         end
-    elseif fh
-        # to test faster homeostatic mechanisms
-        W, T, R, trackers = tt.sim_fh(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
-        snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp);
     else
         W, T, R, trackers = tt.sim(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
             snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp);
@@ -62,44 +58,11 @@ function _run(snn::SNNLayer, traces::Bool=false, eSTDP=true, fh=false)
     return SNNOut(W, T, R, trackers, ps, ws)
 end
 
-function _run_traces(snn::SNNLayer, full_matrix=false)
-    LKD.makefolder(snn.store.folder);
-    LKD.cleanfolder(snn.store.folder);
-    if !full_matrix
-        # only synapses
-        tt.sim_mall(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
-        snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp);
-    else
-        #full matrices
-        tt.sim_mall_full(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
-        snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp);
-    end
-end
-
 function _run_eSTDPoff(snn::SNNLayer)
     LKD.makefolder(snn.store.folder);
     LKD.cleanfolder(snn.store.folder);
     tt.sim_m_eSTDPoff(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
     snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp);
-end
-
-function _run_triplet_barebones(snn::SNNLayer)
-    snn.store.folder *= "_bb"
-    LKD.makefolder(snn.store.folder);
-    LKD.cleanfolder(snn.store.folder);
-    tt.sim_bb(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
-    snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp);
-end
-
-function _run_triplet_deterministic(snn::SNNLayer, dua=true)
-    snn.store.folder *= "_det"
-    LKD.makefolder(snn.store.folder);
-    LKD.cleanfolder(snn.store.folder);
-    snn.store.save_states = false
-    snn.store.save_network = false
-    snn.store.save_weights = false
-    tt.sim_det(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
-    snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp, dua);
 end
 
 function _run_flex_tracks(snn::SNNLayer, ntrack::Int)
@@ -108,27 +71,18 @@ function _run_flex_tracks(snn::SNNLayer, ntrack::Int)
     tt.sim_m_flex(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
     snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp, ntrack);
 end
-function _run_async(snn::SNNLayer, ch::Channel)
-    snn.store.save_states = false
-    snn.store.save_network = false
-    snn.store.save_weights = false
-    W, T, R, trackers = tt.sim_async(snn.weights, snn.popmembers, snn.spikes_dt, snn.transcriptions_dt, 
-    snn.net, snn.store, snn.weights_params, snn.projections, snn.stdp, ch);
-    return SNNOut(W, T, R, trackers, [], [])    
-end
 
 """
 runs the simulation and stores the network states. Overwrite previous data.
 `trackers` defines how many neurons to track
-fh=faster homeostatic
 """
-function train(snn::SNNLayer; overwrite=false, with_traces=false, eSTDP=true, fh=false)
+function train(snn::SNNLayer; overwrite=false, with_traces=false, eSTDP=true)
 
     if isdir(snn.store.folder)
         if overwrite
             LKD.makefolder(snn.store.folder);
             LKD.cleanfolder(snn.store.folder);    
-            return _run(snn, with_traces, eSTDP, fh)
+            return _run(snn, with_traces, eSTDP)
         else
             # load trained data and return it
             @info "A trained network already exists. Now loading it. To wipe it and run a new training pass overwrite=true."
@@ -137,7 +91,7 @@ function train(snn::SNNLayer; overwrite=false, with_traces=false, eSTDP=true, fh
     else
         LKD.makefolder(snn.store.folder);
         LKD.cleanfolder(snn.store.folder);
-        return _run(snn, with_traces, eSTDP, fh)
+        return _run(snn, with_traces, eSTDP)
     end
 
 end
@@ -151,7 +105,7 @@ end
 runs the simulation on a previously trained network. Data for this network must exist on disk.
 transient: if true removes the entire simulation data from disk at simulation end
 """
-function test(snn::SNNLayer; trial=0, ntrack = 0, transient=false, fh=false)
+function test(snn::SNNLayer; trial=0, ntrack = 0, transient=false)
     snn.net.learning = false
     if trial == 0
         snn.store.save_weights = false
@@ -160,7 +114,7 @@ function test(snn::SNNLayer; trial=0, ntrack = 0, transient=false, fh=false)
         if ntrack > 0
             res = _run_flex_tracks(snn, ntrack)
         else
-            res = _run(snn, false, true, fh)
+            res = _run(snn, false, true)
         end
     else
         # additional trials: creates subfolders
@@ -179,7 +133,7 @@ function test(snn::SNNLayer; trial=0, ntrack = 0, transient=false, fh=false)
             if ntrack > 0
                 res = _run_flex_tracks(snn, ntrack)
             else
-                res = _run(snn, false, true, fh)
+                res = _run(snn, false, true)
             end
             if transient
                 rm(snn.store.folder; recursive=true)
@@ -318,19 +272,4 @@ function delete_sim(il::tt.InputLayer)
     if ispath(folder)
         rm(folder, recursive=true)
     end
-end
-
-"""
-inject input from new input layer into a pretrained network layer
-"""
-function inject(new::tt.InputLayer, old::tt.InputLayer, weights::Matrix{Float64})
-    _old = SNNLayer(old)
-    _old.store = new.store
-    _old.weights = weights
-    _old.spikes_dt = new.spikes_dt
-    _old.transcriptions_dt = new.transcriptions_dt
-    #new.net.simulation_time = old.net.simulation_time # copy simulation time over to be used in the classifier
-    _old.net.simulation_time = new.net.simulation_time # update simulation time
-    @info "Simulation time is $(_old.net.simulation_time)"
-    return _old
 end

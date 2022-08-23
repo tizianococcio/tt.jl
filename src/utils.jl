@@ -1,5 +1,5 @@
 function is_neuron_in_assembly(neuron_id, popm)
-    for i in 1:size(popm, 2)
+    for i in axes(popm, 2)
         res = findall(x -> x == neuron_id, popm[(popm[:,i] .> -1), i])
         if length(res) > 0
             return true

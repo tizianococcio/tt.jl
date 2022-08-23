@@ -1,4 +1,6 @@
+# A file named paths.yml must be placed in the path tt.jl/conf/
+
 dataset_path: '/path/to/TIMIT' # Path to SpikeTIMIT dataset
-training_storage_path: '/where/to/store/trained/networks'
-dataframes_path: '/for/preloaded/dataframes'
-experiments: '/store/experimental/results'
+data: '/where/to/store/experiments/data/' # experiments data
+training_storage_path: '/where/to/store/trained/networks/' # simulation data (separate from experiments as they can be very large)
+plots: '/where/to/store/plots/' # generated plot files

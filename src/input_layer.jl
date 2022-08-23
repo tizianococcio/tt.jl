@@ -161,7 +161,7 @@ function InputLayer(df::DataFrame, params::LKD.InputParams, weights_params::LKD.
 end
 
 """
-pass an isntance of TripletSTDP to triplet_stdp to use it, otherwise default is voltage-stdp
+pass an instance of TripletSTDP to triplet_stdp to use it, otherwise default is voltage-stdp
 """
 function InputLayer(params::LKD.InputParams, weights_params::LKD.WeightParams, stdp::STDP; save = true, subfolder="")
     id = get_folder_name(params, weights_params, stdp);  

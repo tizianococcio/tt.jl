@@ -1,4 +1,4 @@
-# Version of the voltage-stdp network that stores measurements for network analysis
+# Voltage-stdp simulation saving all network states in a single file
 
 using Printf
 
@@ -428,16 +428,6 @@ function sim_m(weights::Matrix{Float64},
 		end #saving states
 	end #end loop over time
 	
-
-	# @time LKD.save_network_weights(weights, simulation_time/1000, folder)
-	# @time LKD.save_network_spikes(times, folder)
-	# @time LKD.save_network_rates(rates, folder)	# Save mean weights over inhibitory neurons
-	
-	# LKD.save_neuron_membrane(voltage_neuron_1_tracker, folder)
-	# LKD.save_neuron_membrane(adaptation_current_neuron_1_tracker, folder; type="w_adapt")
-	# LKD.save_neuron_membrane(adaptive_threshold, folder; type="adaptive_threshold")
-	# LKD.save_neuron_membrane(weight_tracker_pre, folder; type="weight_tracker_pre")
-	# LKD.save_neuron_membrane(weight_tracker_post, folder; type="weight_tracker_post")
 	jldopen(joinpath(folder, "output.jld2"), "w"; compress = true) do file
 		file["weights"] = weights
 		file["spikes"] = times

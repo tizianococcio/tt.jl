@@ -62,16 +62,6 @@ function get_timit_test_dataframe(path::String)
 end
 
 function get_dialectdict()
-    # Dict(
-    #     "1" => "New England",
-    #     "2" => "Northern",
-    #     "3" => "North Midland",
-    #     "4" => "South Midland",
-    #     "5" => "Southern",
-    #     "6" => "New York City",
-    #     "7" => "Western",
-    #     "8" => "Moved around"
-    # )
     Dict(
         1 => "New England",
         2 => "Northern",
@@ -191,7 +181,7 @@ function prepare_network(dataframe::DataFrame, params::LKD.InputParams, training
     
     Random.seed!(params.random_seed)
 
-    # Mix the inputs (3 repetitions->why 3?)
+    # Mix the inputs
     shuffled_ids = SpikeTimit.mix_inputs(length(word_inputs.durations), params.repetitions)
     spikes, transcriptions = SpikeTimit.get_ordered_spikes(
         word_inputs, 
